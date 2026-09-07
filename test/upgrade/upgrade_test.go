@@ -138,8 +138,13 @@ func startVM(t *testing.T, image string) string {
 	// --ssh-wait blocks until sshd answers (bcvk's own budget is 180s).
 	// 4G / 2 vCPU matches hack/e2e.sh: the control plane plus the workload
 	// pods do not fit in a smaller instance type.
+	// --filesystem: fedora-bootc declares no default root filesystem, so
+	// `bootc install to-disk` fails with "No root filesystem specified"
+	// without it. bcvk's own bind-storage test passes ext4 for the same
+	// reason.
 	out, err := bcvk(t, "libvirt", "run", "--name", name, "--replace",
-		"--bind-storage-ro", "--ssh-wait", "--memory", "4G", "--cpus", "2", image)
+		"--bind-storage-ro", "--ssh-wait", "--filesystem", "ext4",
+		"--memory", "4G", "--cpus", "2", image)
 	if err != nil {
 		t.Fatalf("bcvk libvirt run: %v", err)
 	}
