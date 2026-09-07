@@ -79,9 +79,9 @@ func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 // Two notes on the commands. kube-proxy runs in iptables mode (on Fedora's
 // iptables-nft backend), so iptables-save is where its rules are; `nft list
 // ruleset` shows only the "managed by iptables-nft, do not touch" warning.
-// And pod logs go via the apiserver's kubelet client, which this cluster does
-// not authorize for nodes/proxy — `kubectl logs` returns Forbidden here, so
-// container logs have to come from crictl.
+// And the container logs stay on crictl rather than `kubectl logs`: crictl
+// picks a container by name with no pod-name lookup, and it keeps working
+// when the apiserver is itself the component that is unhealthy.
 func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
 	if !s.T().Failed() {
 		return
