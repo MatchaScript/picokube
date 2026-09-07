@@ -197,7 +197,15 @@ show systemctl is-failed picokube.service
 show systemctl list-jobs
 show journalctl -u picokube.service -b --no-pager
 show journalctl -u greenboot-healthcheck -b --no-pager
+# greenboot writes next-deployment-id from this unit's ExecStop, reading
+# bootc status's staged digest. Without it the rollback branch refuses to
+# act ("Boot counter exhausted but no next-deployment-id set"), so its
+# state and ostree's finalization are what decide whether a rollback can
+# happen at all. Neither journal is limited to this boot: the ExecStop that
+# matters runs during the shutdown of the boot before.
+show systemctl is-active greenboot-set-rollback-trigger.service
 show journalctl -u greenboot-set-rollback-trigger --no-pager
+show journalctl -u ostree-finalize-staged --no-pager
 show grub2-editenv - list
 show ls -l /var/lib/picokube/backups/
 show bootc status --json
@@ -746,6 +754,12 @@ func TestRollback(t *testing.T) {
 	t.Logf("boots recorded before the switch: %d", bootsBefore)
 
 	switchTo(t, vm, toImage)
+
+	// TO is staged but not booted yet. This is the last moment at which the
+	// units that have to write next-deployment-id during the coming shutdown
+	// can be observed alive, with the staged digest still in bootc status.
+	dumpGuestState(t, vm, "TO staged, before the reboot")
+
 	before := bootID(t, vm)
 	reboot(t, vm)
 	waitNewBoot(t, vm, before, 10*time.Minute)
