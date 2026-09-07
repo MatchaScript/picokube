@@ -28,6 +28,9 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      - name: go vet (e2e tag)
+        run: go vet -tags e2e ./test/e2e/...
+
       - name: gofmt
         run: |
           unformatted=$(gofmt -l $(go list -f '{{.Dir}}' ./... | grep -v '/reference/'))
@@ -44,48 +47,24 @@ jobs:
         run: go test -race -count=1 -timeout=3m ./...
 
   # ---------------------------------------------------------------------------
-  # E2E suite — installs CRI-O, kubelet, kubectl on the runner via
-  # test/e2e/setup.sh, then drives the full init → boot → workload →
-  # reset lifecycle as a Go testify suite. Slow (~10 min) and needs sudo,
-  # so kept in its own job that only gates merges.
+  # E2E suite — builds the bootc node image and runs the baked suite inside an
+  # ephemeral VM (hack/e2e.sh). ~15 min for the image plus ~10 min of tests,
+  # and it needs KVM, so it lives in its own job.
   # ---------------------------------------------------------------------------
   e2e:
     name: End-to-end suite
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    env:
-      NANOKUBE_E2E_PREBUILT: "1"
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      # Installs a current podman, the qemu/libvirt stack and bcvk, adds the
+      # udev rule that lets an unprivileged user open /dev/kvm, raises the fd
+      # limit and frees disk space. This is how bcvk's own CI prepares a
+      # GitHub-hosted runner (bcvk .github/workflows/main.yml, integration-tests).
+      - uses: bootc-dev/actions/bootc-ubuntu-setup@c8b1f7f7b446a842228cb8e5123f670fd30436bf
         with:
-          go-version: '1.25.8'
-          cache: true
+          libvirt: 'true'
 
-      - name: Build nanokube
-        run: |
-          mkdir -p bin
-          go build -o bin/nanokube ./cmd/nanokube
-          sudo install -m 0755 bin/nanokube /usr/bin/nanokube
-
-      - name: go vet (e2e tag)
-        run: go vet -tags e2e ./test/e2e/...
-
-      - name: Run E2E suite
-        run: |
-          sudo -E env "PATH=$PATH" "HOME=$HOME" \
-            go test -tags e2e -v -timeout 24m -count=1 ./test/e2e/...
-
-      - name: Make diagnostics readable
-        if: failure()
-        run: sudo chmod -R a+rX /tmp/nanokube-e2e-* || true
-
-      - name: Upload diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-diagnostics
-          path: /tmp/nanokube-e2e-*/
-          if-no-files-found: ignore
+      - name: Build the node image and run the suite
+        run: hack/e2e.sh
