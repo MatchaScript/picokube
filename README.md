@@ -1,6 +1,6 @@
-# nanokube
+# picokube
 
-Single-node Kubernetes runtime for bootc-based hosts. nanokube wraps
+Single-node Kubernetes runtime for bootc-based hosts. picokube wraps
 upstream kubeadm phases behind a small CLI (`init`, `config`, …) and
 expects the kubelet, CRI, and Kubernetes binaries to be supplied by the
 bootc image rather than installed at runtime.
@@ -8,13 +8,13 @@ bootc image rather than installed at runtime.
 ## Build
 
 `packaging/Containerfile` produces the node image the e2e suite runs on: a
-Fedora 44 bootc host carrying kubelet, CRI-O, kubectl, the `nanokube` binary
-and its units, plus the e2e suite as `/usr/libexec/nanokube/e2e.test`. It
-exists to run `hack/e2e.sh`; what nanokube releases is the binary and its
+Fedora 44 bootc host carrying kubelet, CRI-O, kubectl, the `picokube` binary
+and its units, plus the e2e suite as `/usr/libexec/picokube/e2e.test`. It
+exists to run `hack/e2e.sh`; what picokube releases is the binary and its
 units, one release per Kubernetes minor.
 
 ```
-podman build -t coralcoast-node:dev -f packaging/Containerfile .
+podman build -t picokube-node:dev -f packaging/Containerfile .
 ```
 
 No special podman flags: the image is a plain `dnf install` on top of
@@ -29,12 +29,12 @@ installed here.
 Boot it with bcvk:
 
 ```
-bcvk ephemeral run-ssh --rm coralcoast-node:dev
+bcvk ephemeral run-ssh --rm picokube-node:dev
 ```
 
 CRI-O comes up on its own: the image does not enable it, so
-`multi-user.target.d/10-nanokube.conf` upholds it. kubelet is not upheld and
-not enabled — `nanokube init` and `nanokube boot` start it, and `nanokube
+`multi-user.target.d/10-picokube.conf` upholds it. kubelet is not upheld and
+not enabled — `picokube init` and `picokube boot` start it, and `picokube
 reset` stops it.
 
 ## Test
@@ -48,27 +48,27 @@ hack/e2e.sh          # end to end
 VM, exiting with the suite's status:
 
 ```
-bcvk ephemeral run-ssh --rm --memory 4G --vcpus 2 coralcoast-node:dev -- \
-    /usr/libexec/nanokube/e2e.test -test.v
+bcvk ephemeral run-ssh --rm --memory 4G --vcpus 2 picokube-node:dev -- \
+    /usr/libexec/picokube/e2e.test -test.v
 ```
 
 The suite drives init → boot → workload → reset against the real node and
-provisions only `/etc/nanokube/config.yaml`, which depends on the node's
+provisions only `/etc/picokube/config.yaml`, which depends on the node's
 address and hostname (see `test/e2e/doc.go`). `bcvk ephemeral` boots the
 container rootfs directly, so `/run/ostree-booted` is absent and the
-ostree-gated backup/restore paths of `nanokube boot` are not exercised.
+ostree-gated backup/restore paths of `picokube boot` are not exercised.
 
 ## Configuration
 
-nanokube reads a multi-document YAML stream modelled on `kubeadm init
---config`. One `NanoKubeConfig` wrapper document identifies the file as
-nanokube's; the rest are standard kubeadm documents (`InitConfiguration`,
-`ClusterConfiguration`, optionally `KubeletConfiguration`) that nanokube
+picokube reads a multi-document YAML stream modelled on `kubeadm init
+--config`. One `PicoKubeConfig` wrapper document identifies the file as
+picokube's; the rest are standard kubeadm documents (`InitConfiguration`,
+`ClusterConfiguration`, optionally `KubeletConfiguration`) that picokube
 hands directly to kubeadm phases at runtime.
 
 ```yaml
-apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 metadata:
   name: local
 ---
@@ -91,10 +91,10 @@ kind: KubeletConfiguration
 cgroupDriver: systemd
 ```
 
-`nanokube config print-defaults` emits a complete starter template
-suitable for `/etc/nanokube/config.yaml`; edit
+`picokube config print-defaults` emits a complete starter template
+suitable for `/etc/picokube/config.yaml`; edit
 `localAPIEndpoint.advertiseAddress` to a routable IP before feeding the
-file to `nanokube init`.
+file to `picokube init`.
 
 ### kubeadm API version support
 
@@ -104,7 +104,7 @@ Parsing of the kubeadm portion goes through kubeadm's own
 current version (`v1beta4` today) plus one deprecated predecessor
 (`v1beta3`), with a `klog.Warningf` on stderr for the deprecated one.
 When kubeadm drops support for an older version the corresponding
-nanokube image will stop accepting configs that still use it; the
+picokube image will stop accepting configs that still use it; the
 warning is the signal to migrate.
 
 ### Pinned and overridden fields
@@ -113,9 +113,9 @@ A few `ClusterConfiguration` fields are managed by the bootc image rather
 than by configuration:
 
 - `kubernetesVersion` — must equal the version pinned in this image (or
-  be left unset). nanokube rejects configs that request a different
+  be left unset). picokube rejects configs that request a different
   version.
-- `certificatesDir` — fixed at `/etc/kubernetes/pki`. nanokube rejects
+- `certificatesDir` — fixed at `/etc/kubernetes/pki`. picokube rejects
   explicit non-matching values and overrides empty defaults.
 
 `JoinConfiguration` documents are rejected outright until multi-node

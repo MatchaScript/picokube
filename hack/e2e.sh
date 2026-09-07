@@ -12,7 +12,7 @@ set -Eeuo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-IMAGE=${IMAGE:-coralcoast-node:dev}
+IMAGE=${IMAGE:-picokube-node:dev}
 # 4G / 2 vCPU: the control plane plus the flannel and nginx pods of Test11
 # do not fit in bcvk's smaller instance types.
 MEMORY=${MEMORY:-4G}
@@ -21,4 +21,4 @@ VCPUS=${VCPUS:-2}
 podman build -t "$IMAGE" -f packaging/Containerfile .
 
 exec bcvk ephemeral run-ssh --rm --memory "$MEMORY" --vcpus "$VCPUS" "$IMAGE" -- \
-    /usr/libexec/nanokube/e2e.test -test.v -test.timeout 30m
+    /usr/libexec/picokube/e2e.test -test.v -test.timeout 30m

@@ -1,4 +1,4 @@
-module github.com/MatchaScript/nanokube
+module github.com/MatchaScript/picokube
 
 go 1.25.8
 

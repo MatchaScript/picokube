@@ -1,8 +1,8 @@
-// Package lifecycle implements `nanokube boot`: the pure-reconcile flow
-// nanokube.service invokes on every reboot of an already-initialised
+// Package lifecycle implements `picokube boot`: the pure-reconcile flow
+// picokube.service invokes on every reboot of an already-initialised
 // node. One-time initialisation (PKI seeding, cluster-admins CRB,
 // super-admin.conf lifecycle) lives in package initialize and is run
-// by `nanokube init`; Boot deliberately knows nothing about it and
+// by `picokube init`; Boot deliberately knows nothing about it and
 // uses admin.conf alone — never falling back to super-admin.conf, which
 // has been deleted by the time Boot ever runs. Aligned with microshift's
 // prerun flow (reference/microshift/pkg/admin/prerun/prerun.go):
@@ -18,30 +18,30 @@
 //  3. Reconcile via kubeadm phases (Ensure), start kubelet, poll
 //     /readyz, wait for node + control-plane static pods Ready, mark
 //     the control-plane node (idempotent: picks up taint changes in
-//     NanoKubeConfig), reconcile addons (best effort), then notify
+//     PicoKubeConfig), reconcile addons (best effort), then notify
 //     systemd READY=1 so a blocking `systemctl start` only returns
 //     once the cluster is actually usable.
 //  4. Prune backups belonging to deployments that bootc has GCed.
 //  5. Update last-boot.json and last-event. Caller idles until SIGTERM.
 //
-// nanokube.service is Type=notify and stays Active(running) once Boot
+// picokube.service is Type=notify and stays Active(running) once Boot
 // returns nil — the binary blocks in the caller after a healthy boot
 // rather than exiting. The unit deliberately does NOT declare
 // Before=kubelet.service: while we're still 'activating' systemd would
 // queue our own inline `systemctl start kubelet.service` job behind
 // that activation and deadlock. Instead the kubelet unit we ship
 // carries no [Install] section, so multi-user.target cannot pull it
-// in ahead of nanokube — kubelet only ever runs because nanokube asked.
+// in ahead of picokube — kubelet only ever runs because picokube asked.
 //
 // Greenboot's required.d/ judges boot success against the live
-// control plane via `nanokube healthcheck`, not against this service's
+// control plane via `picokube healthcheck`, not against this service's
 // exit code. That decoupling lets Boot treat tail bookkeeping
 // (last-boot.json, last-event) as best-effort: a transient write
 // failure after the cluster is verified healthy logs a warning but
 // does not flip a working cluster into rollback. Failures earlier in
 // the pipeline (Ensure / kubelet / readyz / control-plane wait) still
 // propagate as non-zero exit because the service is then genuinely
-// broken — `nanokube healthcheck` would also fail, and the systemctl
+// broken — `picokube healthcheck` would also fail, and the systemctl
 // is-active gate in required.d catches the service itself being dead.
 // The rollback intent is conveyed by greenboot red.d touching the
 // restore marker just before bootc rolls back — there is no self-set
@@ -66,28 +66,28 @@ import (
 	nodebootstraptoken "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/markcontrolplane"
 
-	"github.com/MatchaScript/nanokube/internal/backup"
-	"github.com/MatchaScript/nanokube/internal/certs"
-	"github.com/MatchaScript/nanokube/internal/healthcheck"
-	"github.com/MatchaScript/nanokube/internal/kubeadm"
-	"github.com/MatchaScript/nanokube/internal/kubeclient"
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/ostree"
-	"github.com/MatchaScript/nanokube/internal/preflight"
-	"github.com/MatchaScript/nanokube/internal/state"
+	"github.com/MatchaScript/picokube/internal/backup"
+	"github.com/MatchaScript/picokube/internal/certs"
+	"github.com/MatchaScript/picokube/internal/healthcheck"
+	"github.com/MatchaScript/picokube/internal/kubeadm"
+	"github.com/MatchaScript/picokube/internal/kubeclient"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/ostree"
+	"github.com/MatchaScript/picokube/internal/preflight"
+	"github.com/MatchaScript/picokube/internal/state"
 )
 
 // Boot runs the per-reboot reconcile flow. out receives human-readable
 // progress logs (journald when invoked from systemd). Returns nil on a
-// healthy boot; any non-nil error means nanokube.service will exit
+// healthy boot; any non-nil error means picokube.service will exit
 // non-zero, which greenboot's required.d/ script turns into a boot
 // failure. Boot assumes the node has already been initialised — first
 // initialisation lives in package initialize. Boot uses admin.conf
 // only; super-admin.conf has been deleted by then and any operator who
-// regenerated it via `nanokube kubeconfig super-admin` is responsible
+// regenerated it via `picokube kubeconfig super-admin` is responsible
 // for cleaning it up themselves.
 func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout, selfVersion string, out io.Writer) error {
-	logf := func(format string, a ...any) { fmt.Fprintf(out, "[nanokube] "+format+"\n", a...) }
+	logf := func(format string, a ...any) { fmt.Fprintf(out, "[picokube] "+format+"\n", a...) }
 	nodeName := cfg.NodeRegistration.Name
 
 	// Preflight gates writability + free-space; AllocateWorkspace then
@@ -102,7 +102,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		return fmt.Errorf("detect ostree: %w", err)
 	}
 	checks := []preflight.Preflighter{
-		preflight.FSWritable{Dirs: []string{l.NanoKubeVarDir, l.KubernetesDir}},
+		preflight.FSWritable{Dirs: []string{l.PicoKubeVarDir, l.KubernetesDir}},
 		certs.CAExistPreflighter{Layout: l}, // CR9: gate Ensure on CA presence
 	}
 	if isOSTree {
@@ -192,7 +192,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 
 	// Point kubelet.conf at the certificate kubelet rotates for itself
-	// rather than the bootstrap one certs.Init embedded. `nanokube init`
+	// rather than the bootstrap one certs.Init embedded. `picokube init`
 	// normally did this already; this call covers the boot after an init
 	// whose wait timed out. No restart is needed — kubelet reads
 	// kubelet.conf on the start issued just below.
@@ -211,10 +211,10 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 
 	// admin.conf only: the cluster-admins CRB was seeded once during
-	// `nanokube init` (package initialize) and super-admin.conf was
+	// `picokube init` (package initialize) and super-admin.conf was
 	// removed at that time. If the CRB has since been deleted by hand,
 	// admin.conf cannot reach the apiserver and waitControlPlane will
-	// surface the failure — recovery is `nanokube reset` + `init`, not
+	// surface the failure — recovery is `picokube reset` + `init`, not
 	// a silent fallback.
 	client, err := kubeclient.LoadAdmin(l.AdminKubeconfig)
 	if err != nil {
@@ -241,7 +241,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("auto-approve node certificate rotation: %w", err))
 	}
 
-	// CR8: addon failure is fatal, matching `nanokube init` and upstream
+	// CR8: addon failure is fatal, matching `picokube init` and upstream
 	// kubeadm. The previous log-and-continue was asymmetric and let a
 	// boot succeed when the cluster was missing CoreDNS / kube-proxy.
 	// kubeclient.LoadAdmin now sets Timeout=10s (CR14) so a stalled
@@ -262,7 +262,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	// Cluster is verified healthy by this point. Treat last-boot.json
 	// as bookkeeping: a transient write failure must NOT propagate to a
 	// non-zero exit, because greenboot's required.d now judges boot
-	// health via `nanokube healthcheck` against the live apiserver, not
+	// health via `picokube healthcheck` against the live apiserver, not
 	// via this service's exit code. The cost of a missed write is one
 	// boot of stale `prev` next time around (snapshot may use an older
 	// name; backup.Create is idempotent on duplicates) — strictly less
@@ -283,14 +283,14 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		_ = state.WriteLastEvent(l, fmt.Sprintf("healthy at %s", selfVersion))
 	}
 	// Cluster is verified healthy. Notify systemd READY=1 so a blocking
-	// `systemctl start nanokube.service` returns only once the system is
+	// `systemctl start picokube.service` returns only once the system is
 	// actually usable. The unit deliberately does NOT carry
 	// Before=kubelet.service: that would make systemd queue the kubelet
 	// start job we issue from inside startKubelet behind our own
 	// activation, deadlocking the readyz wait. Instead we keep kubelet
 	// from racing ahead by ensuring kubelet.service ships without an
 	// [Install] section, so multi-user.target cannot pull it in
-	// independently of nanokube.
+	// independently of picokube.
 	notifyReady(logf)
 	logf("boot complete")
 	return nil
@@ -357,7 +357,7 @@ func bootFailed(l layout.Layout, upgrading bool, prev, self string, cause error)
 }
 
 // notifyReady sends sd_notify READY=1 if running under a systemd unit
-// with Type=notify. Outside systemd (e.g. unit tests, manual `nanokube
+// with Type=notify. Outside systemd (e.g. unit tests, manual `picokube
 // boot` invocation) it is a no-op. We pass unsetEnvironment=true so
 // that the systemctl/kubeadm processes we exec afterwards do not
 // inherit NOTIFY_SOCKET and accidentally re-send readiness on our
@@ -447,7 +447,7 @@ func shortPair(deploy, boot string) string {
 // the CA cascade have a fresh NotAfter and will not trip NeedsRotation
 // on the re-read in step 2.
 func rotateCertsIfStale(cfg *kubeadmapi.InitConfiguration, l layout.Layout, out io.Writer) error {
-	logf := func(format string, a ...any) { fmt.Fprintf(out, "[nanokube] "+format+"\n", a...) }
+	logf := func(format string, a ...any) { fmt.Fprintf(out, "[picokube] "+format+"\n", a...) }
 
 	caReport, err := certs.CheckCAs(l)
 	if err != nil {

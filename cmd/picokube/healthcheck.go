@@ -7,12 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MatchaScript/nanokube/internal/healthcheck"
-	"github.com/MatchaScript/nanokube/internal/kubeclient"
+	"github.com/MatchaScript/picokube/internal/healthcheck"
+	"github.com/MatchaScript/picokube/internal/kubeclient"
 )
 
 // newHealthcheckCmd separates "is the cluster healthy?" from "did the
-// nanokube binary exit cleanly?" so greenboot's required.d hook can
+// picokube binary exit cleanly?" so greenboot's required.d hook can
 // judge boot success against the actual control plane rather than the
 // service exit code. Mirrors microshift's `microshift healthcheck`
 // (reference/microshift/packaging/greenboot/microshift-running-check.sh).

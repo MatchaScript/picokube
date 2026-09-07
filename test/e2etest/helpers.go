@@ -15,7 +15,7 @@ type Helpers struct {
 
 // Config configures a Helpers instance.
 type Config struct {
-	Bin        string // /usr/bin/nanokube
+	Bin        string // /usr/bin/picokube
 	Kubeconfig string // /etc/kubernetes/admin.conf
 	NodeName   string // lowercased hostname
 	FlannelURL string // overridable; default = github releases /latest

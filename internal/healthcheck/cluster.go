@@ -45,7 +45,7 @@ type readyCheck struct {
 func waitAllReady(ctx context.Context, checks []readyCheck) error {
 	// CR5: derive a cancellable child so success cancels every still-running
 	// per-check goroutine. Without this, a caller that succeeded (e.g.
-	// `nanokube healthcheck` CLI) would leave goroutines polling the
+	// `picokube healthcheck` CLI) would leave goroutines polling the
 	// apiserver until process exit. Boot was usually saved by SIGTERM,
 	// but the CLI's one-shot exit window leaked all four goroutines.
 	ctx, cancel := context.WithCancel(ctx)

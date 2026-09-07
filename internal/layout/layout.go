@@ -1,5 +1,5 @@
-// Package layout enumerates every filesystem location nanokube reads or
-// writes. A single value is built in cmd/nanokube/root.go via Default()
+// Package layout enumerates every filesystem location picokube reads or
+// writes. A single value is built in cmd/picokube/root.go via Default()
 // and passed down to every component, replacing the global var-based
 // internal/paths package.
 //
@@ -11,17 +11,17 @@
 // path under t.TempDir() with no global state — safe under t.Parallel().
 package layout
 
-// Layout holds every filesystem path nanokube reads or writes. Production
+// Layout holds every filesystem path picokube reads or writes. Production
 // callers receive Default(); tests receive layouttest.New(t).
 type Layout struct {
-	// nanokube own config and state
-	ConfigDir      string // /etc/nanokube
-	ConfigFile     string // /etc/nanokube/config.yaml
-	NanoKubeVarDir string // /var/lib/nanokube
-	StateDir       string // /var/lib/nanokube/state
+	// picokube own config and state
+	ConfigDir      string // /etc/picokube
+	ConfigFile     string // /etc/picokube/config.yaml
+	PicoKubeVarDir string // /var/lib/picokube
+	StateDir       string // /var/lib/picokube/state
 	LastBootFile   string
 	LastEventFile  string
-	BackupsDir     string // /var/lib/nanokube/backups
+	BackupsDir     string // /var/lib/picokube/backups
 	RestoreMarker  string
 
 	// Kubernetes (KubernetesDir is also the kubeconfig directory)
@@ -46,13 +46,13 @@ type Layout struct {
 }
 
 // Default returns the production layout — the canonical kubeadm +
-// nanokube on-disk locations.
+// picokube on-disk locations.
 func Default() Layout {
 	const (
-		configDir = "/etc/nanokube"
-		nkVarDir  = "/var/lib/nanokube"
-		stateDir  = nkVarDir + "/state"
-		backups   = nkVarDir + "/backups"
+		configDir = "/etc/picokube"
+		pkVarDir  = "/var/lib/picokube"
+		stateDir  = pkVarDir + "/state"
+		backups   = pkVarDir + "/backups"
 
 		kdir = "/etc/kubernetes"
 		pki  = kdir + "/pki"
@@ -64,7 +64,7 @@ func Default() Layout {
 	return Layout{
 		ConfigDir:      configDir,
 		ConfigFile:     configDir + "/config.yaml",
-		NanoKubeVarDir: nkVarDir,
+		PicoKubeVarDir: pkVarDir,
 		StateDir:       stateDir,
 		LastBootFile:   stateDir + "/last-boot.json",
 		LastEventFile:  stateDir + "/last-event",

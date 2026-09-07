@@ -1,9 +1,9 @@
-// Package atomic provides filesystem primitives that nanokube's
+// Package atomic provides filesystem primitives that picokube's
 // state-mutating paths rely on for crash safety. SwapDir is the
 // load-bearing one: it lets restoreDir and RegenerateCA replace a live
 // data tree without ever leaving an in-progress half-state on disk.
 //
-// Linux-only by design. nanokube ships on Fedora bootc; we make no
+// Linux-only by design. picokube ships on Fedora bootc; we make no
 // effort to abstract over Windows/macOS.
 package atomic
 

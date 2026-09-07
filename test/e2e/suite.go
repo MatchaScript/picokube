@@ -14,13 +14,13 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/MatchaScript/nanokube/test/e2etest"
+	"github.com/MatchaScript/picokube/test/e2etest"
 )
 
 const (
-	binPath    = "/usr/bin/nanokube"
+	binPath    = "/usr/bin/picokube"
 	kubeconfig = "/etc/kubernetes/admin.conf"
-	configPath = "/etc/nanokube/config.yaml"
+	configPath = "/etc/picokube/config.yaml"
 	criSocket  = "unix:///var/run/crio/crio.sock"
 	podSubnet  = "10.244.0.0/16"
 	// Pinned: `latest` would silently retarget the data-plane test at a
@@ -29,11 +29,11 @@ const (
 	flannelURL = "https://github.com/flannel-io/flannel/releases/download/v0.28.9/kube-flannel.yml"
 )
 
-// NanokubeE2ESuite drives the full bootstrap → boot → workload → reset
+// PicokubeE2ESuite drives the full bootstrap → boot → workload → reset
 // lifecycle on the bootc node image, from inside the VM. State carries
 // between tests; methods are named TestNN_Group_Case so testify's
 // lexicographic dispatch order preserves the bash suite's ordering.
-type NanokubeE2ESuite struct {
+type PicokubeE2ESuite struct {
 	suite.Suite
 
 	binPath    string
@@ -50,11 +50,11 @@ type NanokubeE2ESuite struct {
 }
 
 // SetupSuite runs once at the start: root check, env, paths, and the
-// host state that is not image content — /etc/nanokube/config.yaml and
+// host state that is not image content — /etc/picokube/config.yaml and
 // the absence of a previous run's artefacts.
-func (s *NanokubeE2ESuite) SetupSuite() {
+func (s *PicokubeE2ESuite) SetupSuite() {
 	if os.Geteuid() != 0 {
-		s.T().Fatal("e2e suite must run as root (it is meant to run as /usr/libexec/nanokube/e2e.test inside the node image; see hack/e2e.sh)")
+		s.T().Fatal("e2e suite must run as root (it is meant to run as /usr/libexec/picokube/e2e.test inside the node image; see hack/e2e.sh)")
 	}
 
 	s.binPath = binPath
@@ -63,9 +63,9 @@ func (s *NanokubeE2ESuite) SetupSuite() {
 
 	s.nodeName = s.pinHostname()
 
-	s.keepArtifacts = os.Getenv("NANOKUBE_E2E_KEEP") == "1"
+	s.keepArtifacts = os.Getenv("PICOKUBE_E2E_KEEP") == "1"
 
-	s.dumpRoot = filepath.Join(os.TempDir(), fmt.Sprintf("nanokube-e2e-%d", os.Getpid()))
+	s.dumpRoot = filepath.Join(os.TempDir(), fmt.Sprintf("picokube-e2e-%d", os.Getpid()))
 	s.Require().NoError(os.MkdirAll(s.dumpRoot, 0o755))
 	s.T().Logf("dump root: %s", s.dumpRoot)
 
@@ -83,11 +83,11 @@ func (s *NanokubeE2ESuite) SetupSuite() {
 // The image ships no /etc/hostname, so the hostname is transient and
 // NetworkManager replaces it with whatever DHCP or a reverse lookup of the
 // leased address yields — which can land minutes into the run. kubelet takes
-// its node name from the hostname, so a rename after `nanokube init` makes it
+// its node name from the hostname, so a rename after `picokube init` makes it
 // re-register under a new name, and every authorization on
 // system:node:<name> then fails ("node 'x' cannot read 'y'"). A static
 // hostname takes precedence over NetworkManager's, so write one before init.
-func (s *NanokubeE2ESuite) pinHostname() string {
+func (s *PicokubeE2ESuite) pinHostname() string {
 	host, err := os.Hostname()
 	s.Require().NoError(err, "os.Hostname")
 	name := strings.ToLower(host)
@@ -98,7 +98,7 @@ func (s *NanokubeE2ESuite) pinHostname() string {
 	return name
 }
 
-// writeConfig seeds /etc/nanokube/config.yaml from `nanokube config
+// writeConfig seeds /etc/picokube/config.yaml from `picokube config
 // print-defaults` and overrides the fields that depend on this host, so
 // the image itself can stay host-independent:
 //
@@ -118,9 +118,9 @@ func (s *NanokubeE2ESuite) pinHostname() string {
 // Every InitConfiguration field touched here lives at 2-space indent in
 // the multi-document stream print-defaults emits. A rewrite that does not
 // land fails the suite here rather than as a confusing downstream error.
-func (s *NanokubeE2ESuite) writeConfig() {
+func (s *PicokubeE2ESuite) writeConfig() {
 	ip := s.routableIP()
-	out, _ := s.H.Nanokube("config", "print-defaults")
+	out, _ := s.H.Picokube("config", "print-defaults")
 
 	for _, r := range []struct{ pattern, repl, want string }{
 		{`(?m)^(  advertiseAddress: ).*$`, "${1}" + ip, "advertiseAddress: " + ip},
@@ -142,7 +142,7 @@ func (s *NanokubeE2ESuite) writeConfig() {
 // traffic — the equivalent of `hostname -I | awk '{print $1}'` without
 // depending on which interface the VM came up on. The UDP socket is
 // never written to, so nothing leaves the host.
-func (s *NanokubeE2ESuite) routableIP() string {
+func (s *PicokubeE2ESuite) routableIP() string {
 	c, err := net.Dial("udp", "1.1.1.1:80")
 	s.Require().NoError(err, "pick routable source address")
 	defer c.Close()
@@ -152,17 +152,17 @@ func (s *NanokubeE2ESuite) routableIP() string {
 // cleanLeftovers removes the artefacts of a previous run so the suite can
 // be re-run against a long-lived debug VM. A fresh ephemeral VM has none
 // of these; reset is best-effort for the same reason.
-func (s *NanokubeE2ESuite) cleanLeftovers() {
+func (s *PicokubeE2ESuite) cleanLeftovers() {
 	if _, err := os.Stat("/etc/kubernetes"); err == nil {
 		s.T().Log("previous run detected; resetting")
-		_, _, _ = s.H.NanokubeRaw("reset", "--yes")
+		_, _, _ = s.H.PicokubeRaw("reset", "--yes")
 	}
-	for _, p := range []string{"/etc/kubernetes", "/var/lib/etcd", "/var/lib/kubelet", "/var/lib/nanokube"} {
+	for _, p := range []string{"/etc/kubernetes", "/var/lib/etcd", "/var/lib/kubelet", "/var/lib/picokube"} {
 		s.Require().NoError(os.RemoveAll(p))
 	}
 }
 
-func (s *NanokubeE2ESuite) newHelpers() *e2etest.Helpers {
+func (s *PicokubeE2ESuite) newHelpers() *e2etest.Helpers {
 	return e2etest.New(s.T(), e2etest.Config{
 		Bin:        s.binPath,
 		Kubeconfig: s.kubeconfig,
@@ -172,10 +172,10 @@ func (s *NanokubeE2ESuite) newHelpers() *e2etest.Helpers {
 }
 
 // TearDownSuite removes the dump root unless a test failed or
-// NANOKUBE_E2E_KEEP=1 asked for preservation. nanokube reset is NOT
+// PICOKUBE_E2E_KEEP=1 asked for preservation. picokube reset is NOT
 // called here — the final test (Test16) exercises reset itself, and
 // teardown-time reset would mask reset-path failures.
-func (s *NanokubeE2ESuite) TearDownSuite() {
+func (s *PicokubeE2ESuite) TearDownSuite() {
 	if s.T().Failed() || s.keepArtifacts {
 		s.T().Logf("preserving dump root: %s", s.dumpRoot)
 		return
@@ -196,7 +196,7 @@ func (s *NanokubeE2ESuite) TearDownSuite() {
 // State is NOT reset between tests — the bash suite carries state
 // through, so the Go port follows the same model. TearDownTest
 // collects diagnostics only when a test fails.
-func (s *NanokubeE2ESuite) SetupTest() {
+func (s *PicokubeE2ESuite) SetupTest() {
 	s.currentDir = filepath.Join(s.dumpRoot, s.T().Name())
 	if err := os.MkdirAll(s.currentDir, 0o755); err != nil {
 		s.T().Logf("setup: mkdir %s: %v", s.currentDir, err)
@@ -206,7 +206,7 @@ func (s *NanokubeE2ESuite) SetupTest() {
 }
 
 // TearDownTest dumps diagnostics on failure and logs test duration.
-func (s *NanokubeE2ESuite) TearDownTest() {
+func (s *PicokubeE2ESuite) TearDownTest() {
 	if s.T().Failed() {
 		s.H.DumpDiagnostics(s.currentDir)
 		s.T().Logf("artifacts: %s", s.currentDir)

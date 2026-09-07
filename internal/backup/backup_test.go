@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
-	"github.com/MatchaScript/nanokube/internal/state"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/state"
 )
 
 // requireCp skips the test when the host `cp` binary does not accept the
@@ -23,7 +23,7 @@ func requireCp(t *testing.T) {
 	}
 	out, err := exec.Command("cp", "--help").CombinedOutput()
 	if err != nil || !containsAll(string(out), "--reflink") {
-		t.Skip("host cp lacks --reflink; skipping (nanokube targets GNU coreutils)")
+		t.Skip("host cp lacks --reflink; skipping (picokube targets GNU coreutils)")
 	}
 }
 

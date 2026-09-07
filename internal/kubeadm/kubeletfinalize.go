@@ -7,13 +7,13 @@ import (
 
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // FinalizeKubeletKubeconfig points kubelet.conf at the certificate
 // kubelet rotates for itself, mirroring kubeadm's kubelet-finalize
 // phase (cmd/phases/init/kubeletfinalize.go). That phase is not exported
-// as a function, so nanokube carries its own copy.
+// as a function, so picokube carries its own copy.
 //
 // certs.Init writes kubelet.conf with the client certificate embedded.
 // kubelet treats that embedded cert as a bootstrap credential: on first

@@ -1,11 +1,11 @@
 //go:build e2e
 
-// Package e2e is nanokube's end-to-end suite. It drives the full
+// Package e2e is picokube's end-to-end suite. It drives the full
 // bootstrap → boot → workload → reset lifecycle from inside a VM
 // booted off the bootc node image (packaging/Containerfile), which
 // already carries kubelet, CRI-O, kubectl, crictl, the sysctls and the
-// units nanokube expects. The only host state the suite provisions is
-// /etc/nanokube/config.yaml, which depends on the node's address and
+// units picokube expects. The only host state the suite provisions is
+// /etc/picokube/config.yaml, which depends on the node's address and
 // hostname and so cannot live in the image.
 //
 // The suite is gated by //go:build e2e — `go test ./...` does not see
@@ -18,7 +18,7 @@
 // builds the image and runs it:
 //
 //	go test -c -tags e2e -o e2e.test ./test/e2e   (in the Containerfile)
-//	bcvk ephemeral run-ssh --rm <image> -- /usr/libexec/nanokube/e2e.test -test.v
+//	bcvk ephemeral run-ssh --rm <image> -- /usr/libexec/picokube/e2e.test -test.v
 //
 // `ephemeral run-ssh` is the bcvk mode that propagates the guest
 // command's exit status, so the suite's result is the script's result.
@@ -32,6 +32,6 @@
 //
 // Env vars:
 //
-//	NANOKUBE_E2E_KEEP=1   keep /tmp/nanokube-e2e-<pid> after the suite
+//	PICOKUBE_E2E_KEEP=1   keep /tmp/picokube-e2e-<pid> after the suite
 //	                      (default: kept only on failure)
 package e2e

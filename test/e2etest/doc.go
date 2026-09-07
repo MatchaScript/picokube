@@ -1,4 +1,4 @@
-// Package e2etest provides the shared helpers used by nanokube's
+// Package e2etest provides the shared helpers used by picokube's
 // end-to-end suite under test/e2e. It is not tagged itself — the
 // helpers are pure Go (exec wrappers, file assertions, retry loops)
 // and individual functions are unit-testable without root.

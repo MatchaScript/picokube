@@ -1,5 +1,5 @@
 // Package preflight defines the Preflighter interface that each
-// nanokube subsystem implements for its cheap pre-condition checks,
+// picokube subsystem implements for its cheap pre-condition checks,
 // plus Run which executes a slice sequentially and stops on the first
 // failure. Implementations live in the subsystem packages: see
 // certs.CAExistPreflighter and backup.SpacePreflighter. Generic

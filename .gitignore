@@ -1,6 +1,6 @@
 # Vendored upstream repositories used as research references only.
 # Not part of the build; kept locally for cross-checking kubeadm/microshift/
-# talos/k0s/cilium/vcluster behavior while developing nanokube.
+# talos/k0s/cilium/vcluster behavior while developing picokube.
 reference/
 
 # Build artifacts

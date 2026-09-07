@@ -7,16 +7,16 @@ import (
 	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // WriteSuperAdminKubeconfig (re)writes /etc/kubernetes/super-admin.conf
 // from the cluster CA. Two callers:
 //
-//  1. `nanokube init` (internal/initialize) writes it just-in-time so
+//  1. `picokube init` (internal/initialize) writes it just-in-time so
 //     InitAdminRBAC can authenticate as system:masters to seed the
 //     cluster-admins ClusterRoleBinding, then deletes it.
-//  2. `nanokube kubeconfig super-admin` regenerates it for break-glass
+//  2. `picokube kubeconfig super-admin` regenerates it for break-glass
 //     scenarios where RBAC has been broken and admin.conf can no
 //     longer reach the apiserver.
 //

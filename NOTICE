@@ -1,5 +1,5 @@
-nanokube
-https://github.com/MatchaScript/nanokube
+picokube
+https://github.com/MatchaScript/picokube
 
 This product incorporates code from the following open-source projects:
 
@@ -23,7 +23,7 @@ https://github.com/kubernetes/kubernetes
 Copyright 2014 The Kubernetes Authors
 Apache License, Version 2.0
 
-nanokube links against the kubeadm phases library
+picokube links against the kubeadm phases library
 (k8s.io/kubernetes/cmd/kubeadm/app/phases) as a Go module dependency.
 No kubeadm source files were copied into this repository.
 

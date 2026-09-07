@@ -1,10 +1,10 @@
 // Package state manages the small metadata files under
-// /var/lib/nanokube/state/ that describe the most recent successful boot.
+// /var/lib/picokube/state/ that describe the most recent successful boot.
 //
 // Two files matter:
 //
 //   - last-boot.json: JSON metadata for the boot that last completed
-//     successfully. Holds the nanokube version, the ostree/bootc
+//     successfully. Holds the picokube version, the ostree/bootc
 //     deployment id (when applicable) and the kernel boot id. Used at
 //     the start of the next boot to detect upgrades and to name the
 //     backup of the data produced by that previous boot.
@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // LastBoot is the metadata persisted after a healthy boot. DeploymentID
@@ -78,23 +78,23 @@ func ReadLastEvent(l layout.Layout) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// Exists reports whether the node already carries nanokube-managed state
+// Exists reports whether the node already carries picokube-managed state
 // that init would conflict with. Two independent signals:
 //
 //   - <KubernetesDir>/manifests/kube-apiserver.yaml — kubeadm.Ensure
 //     wrote the static pod manifest, so init has run.
-//   - <NanoKubeVarDir> — lifecycle has persisted state (last-boot.json,
+//   - <PicoKubeVarDir> — lifecycle has persisted state (last-boot.json,
 //     backups, …) from a prior cluster.
 //
 // Either alone is reason to refuse a fresh init; the second guards
 // against the case where /etc/kubernetes was wiped manually but
 // lifecycle data still references the old cluster, which would corrupt
 // the next boot's upgrade-detection / backup-naming logic.
-// `nanokube reset` wipes both, so the operator-recovery path is uniform.
+// `picokube reset` wipes both, so the operator-recovery path is uniform.
 func Exists(l layout.Layout) (bool, error) {
 	for _, p := range []string{
 		l.KubeAPIServerManifest,
-		l.NanoKubeVarDir,
+		l.PicoKubeVarDir,
 	} {
 		ok, err := fileExists(p)
 		if err != nil {

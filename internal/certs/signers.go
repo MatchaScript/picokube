@@ -13,8 +13,8 @@ import (
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/certs/renewal"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
 
-	atomicpkg "github.com/MatchaScript/nanokube/internal/atomic"
-	"github.com/MatchaScript/nanokube/internal/layout"
+	atomicpkg "github.com/MatchaScript/picokube/internal/atomic"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // Signer issues and renews the cert material under l.PKIDir +
@@ -98,7 +98,7 @@ func (s *Signer) RenewLeaves(leaves []LeafKind) error {
 			return fmt.Errorf("renew %s: %w", leaf, err)
 		}
 		if !renewed {
-			// Should be unreachable: nanokube always owns the CA key.
+			// Should be unreachable: picokube always owns the CA key.
 			// A false return here means the kubeadm manager could not
 			// find a usable local CA, which is a programming error
 			// (PKI was not initialised) rather than a renewal outcome.
@@ -115,7 +115,7 @@ func (s *Signer) RenewLeaves(leaves []LeafKind) error {
 // CR2: the legacy implementation deleted the live PKI files in-place
 // before calling kubeadm's CreatePKIAssets, so a mid-flight failure
 // left the node bricked (no CA, no leaves, no recovery path short of
-// `nanokube reset`). Now:
+// `picokube reset`). Now:
 //
 //  1. Copy the current PKI tree to a sibling `<PKIDir>.regen` staging dir.
 //  2. Inside staging, delete the CA + dependent leaves so
@@ -130,7 +130,7 @@ func (s *Signer) RenewLeaves(leaves []LeafKind) error {
 //
 // super-admin.conf is intentionally NOT regenerated: it is a
 // break-glass cred whose presence on a long-lived node is itself an
-// invariant violation, and `nanokube kubeconfig super-admin` is the
+// invariant violation, and `picokube kubeconfig super-admin` is the
 // documented path to re-issue it under the new CA.
 func (s *Signer) RegenerateCA(ca CAKind) error {
 	stagePKI := s.layout.PKIDir + ".regen"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // CAExistPreflighter gates boot on the presence of every CA file
@@ -14,7 +14,7 @@ import (
 // a non-existent ca.crt, deferring the failure to apiserver crash-loop
 // where the root cause is harder to read.
 //
-// Only meaningful at boot. `nanokube init` runs certs.Init seconds
+// Only meaningful at boot. `picokube init` runs certs.Init seconds
 // later, so CAs absent at init time are expected — the orchestrator
 // omits this Preflighter from init's check slice.
 type CAExistPreflighter struct {

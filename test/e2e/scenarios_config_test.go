@@ -7,20 +7,20 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/MatchaScript/nanokube/test/e2etest"
+	"github.com/MatchaScript/picokube/test/e2etest"
 )
 
-// Test01Config_PrintDefaultsIsValid asserts `nanokube config
-// print-defaults` emits a multi-document starter template (NanoKubeConfig
+// Test01Config_PrintDefaultsIsValid asserts `picokube config
+// print-defaults` emits a multi-document starter template (PicoKubeConfig
 // wrapper + kubeadm InitConfiguration) that passes `config validate`
 // after the advertiseAddress placeholder is filled in and criSocket is
 // pointed at this host's CRI runtime.
 // Mirrors test/e2e/e2e.sh:test_normal_print_defaults_is_valid, adapted
 // to the post-23b7b53 schema (the bespoke `selfSigned: true` field is
 // gone; cert-handling moved out of the wrapper).
-func (s *NanokubeE2ESuite) Test01Config_PrintDefaultsIsValid() {
-	out, _ := s.H.Nanokube("config", "print-defaults")
-	e2etest.AssertContains(s.T(), out, "apiVersion: bootstrap.nanokube.io/v1alpha1", "print-defaults")
+func (s *PicokubeE2ESuite) Test01Config_PrintDefaultsIsValid() {
+	out, _ := s.H.Picokube("config", "print-defaults")
+	e2etest.AssertContains(s.T(), out, "apiVersion: bootstrap.picokube.io/v1alpha1", "print-defaults")
 	e2etest.AssertContains(s.T(), out, "kind: InitConfiguration", "print-defaults")
 
 	rewritten := regexp.MustCompile(`(?m)^(\s+advertiseAddress:\s).*$`).
@@ -34,7 +34,7 @@ func (s *NanokubeE2ESuite) Test01Config_PrintDefaultsIsValid() {
 
 	tmp := filepath.Join(s.T().TempDir(), "defaults.yaml")
 	s.Require().NoError(os.WriteFile(tmp, []byte(rewritten), 0o644))
-	s.H.Nanokube("--config", tmp, "config", "validate")
+	s.H.Picokube("--config", tmp, "config", "validate")
 }
 
 // Test02Config_InvalidConfigRejected asserts validate rejects a config
@@ -46,9 +46,9 @@ func (s *NanokubeE2ESuite) Test01Config_PrintDefaultsIsValid() {
 // advertiseAddress — the consistently-rejected case.
 // Mirrors bash :test_abnormal_invalid_config_rejected, adapted to the
 // post-23b7b53 schema.
-func (s *NanokubeE2ESuite) Test02Config_InvalidConfigRejected() {
-	body := `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+func (s *PicokubeE2ESuite) Test02Config_InvalidConfigRejected() {
+	body := `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 metadata:
   name: bad
 spec: {}
@@ -66,7 +66,7 @@ kind: ClusterConfiguration
 	tmp := filepath.Join(s.T().TempDir(), "bad.yaml")
 	s.Require().NoError(os.WriteFile(tmp, []byte(body), 0o644))
 
-	stdout, stderr := s.H.NanokubeExpectFail("--config", tmp, "config", "validate")
+	stdout, stderr := s.H.PicokubeExpectFail("--config", tmp, "config", "validate")
 	// kubeadm reports the field via its CLI-flag name
 	// (apiserver-advertise-address); that substring keeps both "advertise"
 	// and "address" visible in the error so the assertion still verifies
@@ -75,17 +75,17 @@ kind: ClusterConfiguration
 }
 
 // Test03Config_UnknownFieldRejected asserts an unknown field under
-// spec is rejected (NanoKubeConfigSpec is empty {} now; any field is
+// spec is rejected (PicoKubeConfigSpec is empty {} now; any field is
 // strict-unknown). Mirrors bash :test_abnormal_unknown_field_rejected.
-func (s *NanokubeE2ESuite) Test03Config_UnknownFieldRejected() {
-	body := `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+func (s *PicokubeE2ESuite) Test03Config_UnknownFieldRejected() {
+	body := `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 spec:
   typoField: oops
 `
 	tmp := filepath.Join(s.T().TempDir(), "typo.yaml")
 	s.Require().NoError(os.WriteFile(tmp, []byte(body), 0o644))
 
-	stdout, stderr := s.H.NanokubeExpectFail("--config", tmp, "config", "validate")
+	stdout, stderr := s.H.PicokubeExpectFail("--config", tmp, "config", "validate")
 	e2etest.AssertContains(s.T(), stdout+stderr, "typoField", "unknown-field error")
 }

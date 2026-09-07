@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layouttest"
 )
 
 // seedStateAsExisting builds a layouttest layout, writes a kube-apiserver

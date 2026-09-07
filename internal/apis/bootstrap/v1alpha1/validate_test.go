@@ -6,11 +6,11 @@ import (
 
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 
-	"github.com/MatchaScript/nanokube/internal/layouttest"
-	"github.com/MatchaScript/nanokube/internal/version"
+	"github.com/MatchaScript/picokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
-func validInputs(t *testing.T) (*NanoKubeConfig, *kubeadmapi.InitConfiguration) {
+func validInputs(t *testing.T) (*PicoKubeConfig, *kubeadmapi.InitConfiguration) {
 	t.Helper()
 	l := layouttest.New(t)
 	wrapper := NewDefault()
@@ -44,7 +44,7 @@ func TestValidate_RejectsWrongKind(t *testing.T) {
 	l := layouttest.New(t)
 	wrapper, kc := validInputs(t)
 	kc.ClusterConfiguration.CertificatesDir = l.PKIDir
-	wrapper.Kind = "NotNanoKubeConfig"
+	wrapper.Kind = "NotPicoKubeConfig"
 	err := Validate(wrapper, kc, l)
 	if err == nil || !strings.Contains(err.Error(), "kind") {
 		t.Fatalf("Validate = %v; want kind error", err)

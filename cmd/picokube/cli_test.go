@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // runCmd executes the cobra root with args and returns stdout/stderr and
@@ -46,7 +46,7 @@ func TestCLI_PrintDefaultsThenValidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("print-defaults: %v", err)
 	}
-	if !strings.Contains(out, "apiVersion: bootstrap.nanokube.io/v1alpha1") {
+	if !strings.Contains(out, "apiVersion: bootstrap.picokube.io/v1alpha1") {
 		t.Errorf("print-defaults output missing apiVersion: %q", out)
 	}
 
@@ -67,8 +67,8 @@ func TestCLI_PrintDefaultsThenValidate(t *testing.T) {
 func TestCLI_ValidateRejectsBadConfig(t *testing.T) {
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "bad.yaml")
-	body := `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+	body := `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
@@ -113,8 +113,8 @@ func TestCLI_InitRefusesWhenStateExists(t *testing.T) {
 	// before reaching Ensure.
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "config.yaml")
-	body := `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+	body := `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration

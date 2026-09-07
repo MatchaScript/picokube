@@ -1,8 +1,8 @@
 // Package kubeclient builds a typed Kubernetes clientset against a
-// nanokube-managed control plane. Readiness probes (apiserver /readyz,
+// picokube-managed control plane. Readiness probes (apiserver /readyz,
 // node + control-plane static pod waits) live in package healthcheck;
 // keeping kubeclient focused on configuration loading lets the same
-// probe implementation back boot, init, and the `nanokube healthcheck`
+// probe implementation back boot, init, and the `picokube healthcheck`
 // CLI without one wrapping the other.
 package kubeclient
 
@@ -13,14 +13,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/MatchaScript/nanokube/internal/version"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
 // requestTimeout caps per-request blocking on the apiserver. 10s matches
 // kubeadm's clientcmd.ConfigOverrides{Timeout: "10s"} default (see
 // kubeadm app/util/kubeconfig/kubeconfig.go). Long-lived watches must
 // not inherit this — clone the *rest.Config and clear Timeout if you
-// need one. Today no nanokube caller does (healthcheck uses point
+// need one. Today no picokube caller does (healthcheck uses point
 // Get / PollUntilContextTimeout requests, not watches).
 const requestTimeout = 10 * time.Second
 
@@ -37,7 +37,7 @@ func LoadAdmin(path string) (kubernetes.Interface, error) {
 	// fast instead of consuming greenboot's whole retry budget. The
 	// UserAgent makes apiserver audit logs trivially attributable.
 	restCfg.Timeout = requestTimeout
-	restCfg.UserAgent = "nanokube/" + version.KubernetesVersion
+	restCfg.UserAgent = "picokube/" + version.KubernetesVersion
 
 	clientset, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {

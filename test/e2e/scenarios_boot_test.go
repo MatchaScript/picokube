@@ -8,19 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MatchaScript/nanokube/test/e2etest"
+	"github.com/MatchaScript/picokube/test/e2etest"
 )
 
-// Test07Boot_ServiceBootsToReady starts nanokube.service and waits
+// Test07Boot_ServiceBootsToReady starts picokube.service and waits
 // for the node and every kubeadm-style control-plane static pod to
 // reach Ready. A Ready node alone is insufficient — controller-manager
 // or scheduler crash loops would otherwise be invisible.
 // Mirrors bash :test_normal_service_boots_to_ready.
-func (s *NanokubeE2ESuite) Test07Boot_ServiceBootsToReady() {
-	s.T().Log("starting nanokube.service")
-	s.H.SystemctlStart("nanokube.service")
-	s.Require().True(s.H.SystemctlIsActive("nanokube.service"),
-		"nanokube.service inactive after start")
+func (s *PicokubeE2ESuite) Test07Boot_ServiceBootsToReady() {
+	s.T().Log("starting picokube.service")
+	s.H.SystemctlStart("picokube.service")
+	s.Require().True(s.H.SystemctlIsActive("picokube.service"),
+		"picokube.service inactive after start")
 
 	s.H.WaitForNodeReady(5 * time.Minute)
 
@@ -35,7 +35,7 @@ func (s *NanokubeE2ESuite) Test07Boot_ServiceBootsToReady() {
 // thanks to the kubeadm:cluster-admins ClusterRoleBinding seeded by
 // EnsureAdminClusterRoleBinding.
 // Mirrors bash :test_normal_admin_rbac_bound.
-func (s *NanokubeE2ESuite) Test08Boot_AdminRBACBound() {
+func (s *PicokubeE2ESuite) Test08Boot_AdminRBACBound() {
 	s.H.Kubectl("auth", "can-i", "*", "*", "--all-namespaces")
 	s.H.Kubectl("get", "clusterrolebinding", "kubeadm:cluster-admins")
 }
@@ -46,7 +46,7 @@ func (s *NanokubeE2ESuite) Test08Boot_AdminRBACBound() {
 // flowed through to MarkControlPlane — the default control-plane
 // taint must NOT be present.
 // Mirrors bash :test_normal_node_marked_controlplane.
-func (s *NanokubeE2ESuite) Test09Boot_NodeMarkedControlPlane() {
+func (s *PicokubeE2ESuite) Test09Boot_NodeMarkedControlPlane() {
 	raw := s.H.Kubectl("get", "node", s.H.NodeName(), "-o", "json")
 
 	var node struct {
@@ -72,10 +72,10 @@ func (s *NanokubeE2ESuite) Test09Boot_NodeMarkedControlPlane() {
 }
 
 // Test10Boot_AddonsDeployed asserts CoreDNS deployment and kube-proxy
-// DaemonSet are present — these are the only addons nanokube manages
+// DaemonSet are present — these are the only addons picokube manages
 // via EnsureAddons. (Readiness is checked in Test11 after CNI is up.)
 // Mirrors bash :test_normal_addons_deployed.
-func (s *NanokubeE2ESuite) Test10Boot_AddonsDeployed() {
+func (s *PicokubeE2ESuite) Test10Boot_AddonsDeployed() {
 	s.H.Kubectl("-n", "kube-system", "get", "deployment", "coredns")
 	s.H.Kubectl("-n", "kube-system", "get", "daemonset", "kube-proxy")
 	// Belt-and-braces: kubectl get prints headers even when the resource
@@ -94,7 +94,7 @@ func (s *NanokubeE2ESuite) Test10Boot_AddonsDeployed() {
 //
 // Sorts after Test10Boot_AddonsDeployed and before Test11 under
 // testify's lexicographic dispatch, so it runs on the booted cluster.
-func (s *NanokubeE2ESuite) Test10Boot_KubeletCSRApprovedAndIssued() {
+func (s *PicokubeE2ESuite) Test10Boot_KubeletCSRApprovedAndIssued() {
 	const signer = "kubernetes.io/kube-apiserver-client-kubelet"
 	user := "system:node:" + s.H.NodeName()
 

@@ -8,8 +8,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/MatchaScript/nanokube/internal/kubeadm"
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/kubeadm"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // writeEmbeddedKubeletConf writes a kubelet.conf shaped like the one

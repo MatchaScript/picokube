@@ -7,7 +7,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // initAdminRBAC seeds the kubeadm:cluster-admins ClusterRoleBinding so

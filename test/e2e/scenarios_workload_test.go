@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MatchaScript/nanokube/test/e2etest"
+	"github.com/MatchaScript/picokube/test/e2etest"
 )
 
 // Test11Workload_CNIAndConnectivity is the only end-to-end data-plane
@@ -23,7 +23,7 @@ import (
 // runtime curl dependency and to get typed timeouts. Service IP
 // routing takes a few seconds to settle after the deployment becomes
 // Available, so a Retry loop (10 × 3s) wraps the HTTP probe.
-func (s *NanokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
+func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 	s.T().Logf("installing flannel from %s", s.H.FlannelURL())
 	s.H.Kubectl("apply", "-f", s.H.FlannelURL())
 	s.H.WaitForPodsReady("kube-flannel", 5*time.Minute)

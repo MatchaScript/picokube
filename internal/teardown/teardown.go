@@ -1,5 +1,5 @@
-// Package teardown implements `nanokube reset`: tearing the node back
-// down to the state a fresh `nanokube init` would expect. The flow
+// Package teardown implements `picokube reset`: tearing the node back
+// down to the state a fresh `picokube init` would expect. The flow
 // mirrors the scope of `kubeadm reset --force`:
 //
 //  1. Stop kubelet (so static pods are not restarted mid-cleanup).
@@ -10,7 +10,7 @@
 //  3. Remove every CRI pod sandbox (containers come along) via the
 //     kubeadm CRI runtime helper.
 //  4. Remove the managed filesystem paths (/etc/kubernetes,
-//     /var/lib/etcd, /var/lib/kubelet, /var/lib/nanokube).
+//     /var/lib/etcd, /var/lib/kubelet, /var/lib/picokube).
 //
 // Network state (CNI virtual interfaces, iptables / IPVS / nftables
 // rules) is deliberately left untouched. kubeadm reset does not touch
@@ -34,12 +34,12 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/kubernetes/cmd/kubeadm/app/util/runtime"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
-// defaultCRISocket is the on-disk CRI endpoint nanokube installs talk to
-// (CRI-O ships in nanokube's bootc image). Hardcoded here rather than
-// read from NanoKubeConfig because reset must work even when the
+// defaultCRISocket is the on-disk CRI endpoint picokube installs talk to
+// (CRI-O ships in picokube's bootc image). Hardcoded here rather than
+// read from PicoKubeConfig because reset must work even when the
 // configuration file is corrupt or absent — the socket path is a
 // property of the image, not the configuration.
 const defaultCRISocket = "unix:///var/run/crio/crio.sock"
@@ -72,7 +72,7 @@ func Run(ctx context.Context, l layout.Layout, out io.Writer) error {
 		l.KubernetesDir,
 		l.EtcdDataDir,
 		l.KubeletDir,
-		l.NanoKubeVarDir,
+		l.PicoKubeVarDir,
 	} {
 		// RemoveAll is uninterruptible; ctx cancellation cannot stop a single call.
 		if err := os.RemoveAll(t); err != nil {

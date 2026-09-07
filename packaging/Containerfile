@@ -1,14 +1,14 @@
 # The node image the e2e suite runs on: a Fedora bootc host carrying
-# everything nanokube expects to already be present (kubelet, CRI-O, kubectl,
-# CNI plugins) plus the nanokube binary, its units and the compiled e2e suite.
-# It is a test fixture, not a release artefact — releases are the nanokube
+# everything picokube expects to already be present (kubelet, CRI-O, kubectl,
+# CNI plugins) plus the picokube binary, its units and the compiled e2e suite.
+# It is a test fixture, not a release artefact — releases are the picokube
 # binary and its units, per Kubernetes minor.
 #
 # Layout follows homelab's containers/bootc/kubernetes/base.Containerfile: the
 # kubelet/CRI-O RPMs come from pkgs.k8s.io and the openSUSE cri-o repo, pinned
 # to one minor through /etc/dnf/vars.
 #
-#   podman build -t coralcoast-node:dev -f packaging/Containerfile .
+#   podman build -t picokube-node:dev -f packaging/Containerfile .
 
 FROM docker.io/library/golang:1.25 AS gobuild
 WORKDIR /src
@@ -22,7 +22,7 @@ COPY . .
 # unpacking that layer is what exhausts btrfs metadata on the build host.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -o /out/nanokube ./cmd/nanokube && \
+    CGO_ENABLED=0 go build -o /out/picokube ./cmd/picokube && \
     CGO_ENABLED=0 go test -c -tags e2e -o /out/e2e.test ./test/e2e
 
 FROM quay.io/fedora/fedora-bootc:44@sha256:71e4c657272bba6c9c21c5825b26faec58fdfacf4b62e7643c98d3f50a3a3541
@@ -60,7 +60,7 @@ RUN systemctl mask NetworkManager NetworkManager-wait-online \
     systemctl enable systemd-networkd systemd-resolved sshd
 
 # The cri-o rpm ships its default bridge disabled. It is what keeps the node
-# Ready before a CNI is installed — `nanokube init` waits for Ready. Enable it,
+# Ready before a CNI is installed — `picokube init` waits for Ready. Enable it,
 # but rename the bridge: the shipped name is the one every CNI expects to own,
 # and flannel then refuses it ("cni0 already has an IP address different from
 # 10.244.0.1/24") and no pod gets a sandbox. Pods created before the real CNI
@@ -86,10 +86,10 @@ RUN ln -s /var/lib/cni /opt/cni
 # installs flexvolume plugins on this node.
 RUN mkdir -p /usr/libexec/kubernetes/kubelet-plugins/volume/exec
 
-COPY --from=gobuild /out/nanokube /usr/bin/nanokube
-COPY --from=gobuild /out/e2e.test /usr/libexec/nanokube/e2e.test
-COPY packaging/systemd/nanokube.service /usr/lib/systemd/system/
-COPY packaging/systemd/10-nanokube.conf /usr/lib/systemd/system/multi-user.target.d/
+COPY --from=gobuild /out/picokube /usr/bin/picokube
+COPY --from=gobuild /out/e2e.test /usr/libexec/picokube/e2e.test
+COPY packaging/systemd/picokube.service /usr/lib/systemd/system/
+COPY packaging/systemd/10-picokube.conf /usr/lib/systemd/system/multi-user.target.d/
 COPY packaging/crictl.yaml /etc/crictl.yaml
 COPY packaging/greenboot/ /etc/greenboot/
 

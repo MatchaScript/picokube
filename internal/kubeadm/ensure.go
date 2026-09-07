@@ -10,7 +10,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/etcd"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubelet"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // Ensure runs the post-cert kubeadm phases that must hold true on every
@@ -19,7 +19,7 @@ import (
 //	etcd static pod -> control plane static pods -> kubelet config
 //
 // PKI and kubeconfig generation moved to package internal/certs:
-// `nanokube init` calls certs.Init beforehand, and `nanokube boot`
+// `picokube init` calls certs.Init beforehand, and `picokube boot`
 // trusts the on-disk PKI from a prior init. Each phase below is
 // internally idempotent — existing valid files are preserved.
 //

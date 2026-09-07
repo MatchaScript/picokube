@@ -28,8 +28,8 @@ func main() {
 	klog.InitFlags(flag.CommandLine)
 	defer klog.Flush()
 
-	// SIGTERM handler is required for `nanokube boot`, which parks on
-	// ctx.Done() after a healthy boot to keep nanokube.service active.
+	// SIGTERM handler is required for `picokube boot`, which parks on
+	// ctx.Done() after a healthy boot to keep picokube.service active.
 	// Other subcommands ignore the cancellation but inherit it for free.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

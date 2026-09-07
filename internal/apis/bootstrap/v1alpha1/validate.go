@@ -6,17 +6,17 @@ import (
 
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/version"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
-// Validate runs the nanokube-specific gates on the loaded configuration.
+// Validate runs the picokube-specific gates on the loaded configuration.
 // kubeadm's own validator (validation.ValidateInitConfiguration) has
 // already run inside BytesToInitConfiguration; this only adds the
-// constraints that belong to nanokube's deployment model.
+// constraints that belong to picokube's deployment model.
 //
 // Defaults must be applied to wrapper before calling Validate.
-func Validate(wrapper *NanoKubeConfig, kubeadmCfg *kubeadmapi.InitConfiguration, l layout.Layout) error {
+func Validate(wrapper *PicoKubeConfig, kubeadmCfg *kubeadmapi.InitConfiguration, l layout.Layout) error {
 	var errs []error
 
 	if wrapper.APIVersion != APIVersion {

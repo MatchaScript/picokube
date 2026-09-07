@@ -3,11 +3,11 @@ package certs
 import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // Init performs first-time PKI provisioning for a fresh node. Every CA
-// and leaf is self-signed by nanokube; no operator-supplied material is
+// and leaf is self-signed by picokube; no operator-supplied material is
 // consumed.
 //
 // Called exclusively from initialize.Run. boot.Run must NOT

@@ -6,15 +6,15 @@ import (
 	"github.com/spf13/cobra"
 	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
 
-	v1alpha1 "github.com/MatchaScript/nanokube/internal/apis/bootstrap/v1alpha1"
-	"github.com/MatchaScript/nanokube/internal/config"
-	"github.com/MatchaScript/nanokube/internal/version"
+	v1alpha1 "github.com/MatchaScript/picokube/internal/apis/bootstrap/v1alpha1"
+	"github.com/MatchaScript/picokube/internal/config"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
 func newConfigCmd(g *globalOpts) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Inspect and validate NanoKubeConfig",
+		Short: "Inspect and validate PicoKubeConfig",
 	}
 	cmd.AddCommand(newConfigPrintDefaultsCmd(), newConfigValidateCmd(g))
 	return cmd
@@ -23,13 +23,13 @@ func newConfigCmd(g *globalOpts) *cobra.Command {
 func newConfigPrintDefaultsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "print-defaults",
-		Short: "Print a NanoKubeConfig with all defaults applied",
+		Short: "Print a PicoKubeConfig with all defaults applied",
 		Long: "Prints a multi-document YAML stream containing the " +
-			"NanoKubeConfig wrapper plus a defaulted kubeadm " +
+			"PicoKubeConfig wrapper plus a defaulted kubeadm " +
 			"InitConfiguration / ClusterConfiguration suitable as a " +
-			"starting point for /etc/nanokube/config.yaml. Edit the " +
+			"starting point for /etc/picokube/config.yaml. Edit the " +
 			"emitted localAPIEndpoint.advertiseAddress to a routable IP " +
-			"before feeding the file to `nanokube init`.",
+			"before feeding the file to `picokube init`.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			kubeadmCfg, err := kubeadmconfig.DefaultedStaticInitConfiguration()

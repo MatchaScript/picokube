@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MatchaScript/nanokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/layouttest"
 )
 
 func TestReadLastBoot_MissingFileIsNotAnError(t *testing.T) {
@@ -135,7 +135,7 @@ func TestReadLastEvent_EmptyWhenAbsent(t *testing.T) {
 }
 
 // Exists() trips on either the kube-apiserver static pod manifest
-// (init done) OR the /var/lib/nanokube tree (lifecycle data left over).
+// (init done) OR the /var/lib/picokube tree (lifecycle data left over).
 // Cover each independently so a future refactor dropping one fails the
 // matching subtest.
 func TestExists_TwoIndependentSignals(t *testing.T) {
@@ -168,9 +168,9 @@ func TestExists_TwoIndependentSignals(t *testing.T) {
 		}
 	})
 
-	t.Run("var-lib-nanokube alone trips", func(t *testing.T) {
+	t.Run("var-lib-picokube alone trips", func(t *testing.T) {
 		l := layouttest.New(t)
-		// Anything under NanoKubeVarDir creates the dir; last-boot.json
+		// Anything under PicoKubeVarDir creates the dir; last-boot.json
 		// is the realistic case (lifecycle wrote it then someone wiped
 		// /etc/kubernetes manually).
 		if err := WriteLastBoot(l, LastBoot{Version: "v1"}); err != nil {
@@ -181,7 +181,7 @@ func TestExists_TwoIndependentSignals(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !got {
-			t.Fatal("Exists() = false; /var/lib/nanokube alone must trip")
+			t.Fatal("Exists() = false; /var/lib/picokube alone must trip")
 		}
 	})
 }

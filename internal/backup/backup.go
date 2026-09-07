@@ -1,12 +1,12 @@
-// Package backup implements nanokube's boot-time snapshot/restore via
+// Package backup implements picokube's boot-time snapshot/restore via
 // directory copies. Only ostree / bootc systems take backups — the
-// snapshot window relies on etcd being stopped (nanokube.service runs
+// snapshot window relies on etcd being stopped (picokube.service runs
 // Before=kubelet.service) and restore is only meaningful when there is
 // an underlying bootc deployment to tie backups to. The caller (package
 // lifecycle) is responsible for gating the entry points on
 // ostree.IsOSTree().
 //
-// Layout under /var/lib/nanokube/backups:
+// Layout under /var/lib/picokube/backups:
 //
 //	restore                 — marker file placed by greenboot red.d
 //	                          just before bootc rollback; consumed on
@@ -49,9 +49,9 @@ import (
 	"strings"
 	"time"
 
-	atomicpkg "github.com/MatchaScript/nanokube/internal/atomic"
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/state"
+	atomicpkg "github.com/MatchaScript/picokube/internal/atomic"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/state"
 )
 
 // backupEntry pairs a backup directory name with its on-disk modtime,
@@ -269,7 +269,7 @@ func LatestForDeployment(l layout.Layout, deploymentID string) (string, error) {
 // LatestSize returns the on-disk size in bytes of the most recent
 // backup, summed across every regular file under its directory tree.
 // Returns 0 (without error) when no backups exist — the typical state
-// after `nanokube init` and before the first reboot snapshot. Used by
+// after `picokube init` and before the first reboot snapshot. Used by
 // the preflight check to size the next snapshot's headroom.
 func LatestSize(l layout.Layout) (uint64, error) {
 	names, err := List(l)

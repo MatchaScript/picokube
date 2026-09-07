@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	v1alpha1 "github.com/MatchaScript/nanokube/internal/apis/bootstrap/v1alpha1"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
+	v1alpha1 "github.com/MatchaScript/picokube/internal/apis/bootstrap/v1alpha1"
+	"github.com/MatchaScript/picokube/internal/layouttest"
 )
 
 // writeTempFile drops body into a fresh file under t.TempDir() and
@@ -21,11 +21,11 @@ func writeTempFile(t *testing.T, body string) string {
 	return p
 }
 
-// A minimum NanoKubeConfig wrapper plus the kubeadm InitConfiguration /
-// ClusterConfiguration documents nanokube expects. Any field worth
+// A minimum PicoKubeConfig wrapper plus the kubeadm InitConfiguration /
+// ClusterConfiguration documents picokube expects. Any field worth
 // asserting on per-test is added by the caller via concatenation.
-const minimalConfig = `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+const minimalConfig = `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 metadata:
   name: local
 ---
@@ -63,22 +63,22 @@ func TestLoad_MinimalConfigParsesAndDefaults(t *testing.T) {
 
 func TestLoad_FileNotFoundSurfacesPath(t *testing.T) {
 	l := layouttest.New(t)
-	_, err := Load("/tmp/nanokube-does-not-exist-hopefully", l)
+	_, err := Load("/tmp/picokube-does-not-exist-hopefully", l)
 	if err == nil {
 		t.Fatal("Load of missing file = nil")
 	}
-	if !strings.Contains(err.Error(), "/tmp/nanokube-does-not-exist-hopefully") {
+	if !strings.Contains(err.Error(), "/tmp/picokube-does-not-exist-hopefully") {
 		t.Errorf("error should mention path; got %v", err)
 	}
 }
 
 func TestLoad_RejectsMissingWrapper(t *testing.T) {
 	l := layouttest.New(t)
-	// Strip the NanoKubeConfig wrapper out of the minimal config.
+	// Strip the PicoKubeConfig wrapper out of the minimal config.
 	body := strings.SplitN(minimalConfig, "---\n", 2)[1]
 	_, err := Load(writeTempFile(t, body), l)
-	if err == nil || !strings.Contains(err.Error(), "NanoKubeConfig") {
-		t.Fatalf("Load = %v; want NanoKubeConfig-not-found error", err)
+	if err == nil || !strings.Contains(err.Error(), "PicoKubeConfig") {
+		t.Fatalf("Load = %v; want PicoKubeConfig-not-found error", err)
 	}
 }
 
@@ -140,8 +140,8 @@ func TestLoad_MalformedYAML(t *testing.T) {
 // returning an error.
 func TestLoad_DeprecatedAPIVersionStillLoads(t *testing.T) {
 	l := layouttest.New(t)
-	body := `apiVersion: bootstrap.nanokube.io/v1alpha1
-kind: NanoKubeConfig
+	body := `apiVersion: bootstrap.picokube.io/v1alpha1
+kind: PicoKubeConfig
 metadata:
   name: local
 ---

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MatchaScript/nanokube/internal/preflight"
+	"github.com/MatchaScript/picokube/internal/preflight"
 )
 
 type stub struct {

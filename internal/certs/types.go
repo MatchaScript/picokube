@@ -1,6 +1,6 @@
 // Package certs owns the lifecycle of /etc/kubernetes/pki and the
 // kubeconfig-embedded client certificates: initial issuance during
-// `nanokube init` (always self-signed by nanokube) and per-boot
+// `picokube init` (always self-signed by picokube) and per-boot
 // rotation that handles both CA and leaf expiry.
 //
 // CA rotation is in scope: at boot, any CA whose remaining lifetime
@@ -55,7 +55,7 @@ func AllLeaves() []LeafKind {
 	}
 }
 
-// CAKind enumerates the three certificate authorities nanokube owns.
+// CAKind enumerates the three certificate authorities picokube owns.
 // String values are PKI-dir-relative directories holding ca.{crt,key}.
 type CAKind string
 

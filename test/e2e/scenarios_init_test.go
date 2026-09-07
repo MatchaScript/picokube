@@ -5,10 +5,10 @@ package e2e
 import (
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/MatchaScript/nanokube/test/e2etest"
+	"github.com/MatchaScript/picokube/test/e2etest"
 )
 
-// initArtifacts is the full set of paths `nanokube init` must produce
+// initArtifacts is the full set of paths `picokube init` must produce
 // AND leave on disk by the time it returns. super-admin.conf is
 // deliberately NOT in this list: init writes it just-in-time to seed
 // the kubeadm:cluster-admins ClusterRoleBinding and removes it before
@@ -36,20 +36,20 @@ var initArtifacts = []string{
 	"/var/lib/kubelet/kubeadm-flags.env",
 }
 
-// Test04Init_WritesAllArtifacts asserts `nanokube init` produces every
+// Test04Init_WritesAllArtifacts asserts `picokube init` produces every
 // expected PKI / kubeconfig / manifest / kubelet artefact and writes
 // the last-event state marker that state.Exists() trips on.
 // Mirrors bash :test_normal_bootstrap_writes_all_artifacts.
 //
 // Note: the bash suite uses the legacy `bootstrap` verb; the CLI verb
 // is now `init`. The Go port uses the current verb.
-func (s *NanokubeE2ESuite) Test04Init_WritesAllArtifacts() {
-	s.H.Nanokube("init")
+func (s *PicokubeE2ESuite) Test04Init_WritesAllArtifacts() {
+	s.H.Picokube("init")
 	for _, p := range initArtifacts {
 		e2etest.AssertFilePresent(s.T(), p, "init artifact")
 	}
 	e2etest.AssertFilePresent(s.T(),
-		"/var/lib/nanokube/state/last-event", "init event marker")
+		"/var/lib/picokube/state/last-event", "init event marker")
 }
 
 // Test05Init_RefusesWhenStateExists asserts that re-running init
@@ -60,8 +60,8 @@ func (s *NanokubeE2ESuite) Test04Init_WritesAllArtifacts() {
 // (The bash suite also had a `bootstrap --force` overwrite test;
 // the current init CLI exposes no --force flag. The supported
 // recovery path is `reset --yes` then `init`, exercised by Test16.)
-func (s *NanokubeE2ESuite) Test05Init_RefusesWhenStateExists() {
-	s.H.NanokubeExpectFail("init")
+func (s *PicokubeE2ESuite) Test05Init_RefusesWhenStateExists() {
+	s.H.PicokubeExpectFail("init")
 }
 
 // Test06Init_KubeletConfIsPathReference asserts init's kubelet-finalize
@@ -71,7 +71,7 @@ func (s *NanokubeE2ESuite) Test05Init_RefusesWhenStateExists() {
 // year, so a kubelet.conf that still carries it would go stale on the
 // node (kubeadm.FinalizeKubeletKubeconfig, mirroring kubeadm's
 // kubelet-finalize phase).
-func (s *NanokubeE2ESuite) Test06Init_KubeletConfIsPathReference() {
+func (s *PicokubeE2ESuite) Test06Init_KubeletConfIsPathReference() {
 	const pem = "/var/lib/kubelet/pki/kubelet-client-current.pem"
 	e2etest.AssertFilePresent(s.T(), pem, "rotated kubelet client certificate")
 

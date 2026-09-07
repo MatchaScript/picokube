@@ -1,12 +1,12 @@
-// Package config loads a nanokube configuration file from disk and
+// Package config loads a picokube configuration file from disk and
 // returns it as kubeadm's internal *InitConfiguration. The on-disk
-// format is a multi-document YAML stream: one NanoKubeConfig wrapper
+// format is a multi-document YAML stream: one PicoKubeConfig wrapper
 // document plus the standard kubeadm InitConfiguration / Cluster
-// Configuration / KubeletConfiguration documents that nanokube hands
+// Configuration / KubeletConfiguration documents that picokube hands
 // straight to kubeadm phases at runtime.
 //
 // Parsing of the kubeadm portion is delegated to kubeadm's own
-// BytesToInitConfiguration helper. That gives nanokube the upstream
+// BytesToInitConfiguration helper. That gives picokube the upstream
 // defaulter, the upstream validator, and — critically — kubeadm's
 // deprecation warning path for older API versions (klog.Warningf
 // emitted by validateSupportedVersion) for free.
@@ -24,12 +24,12 @@ import (
 	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
 	"sigs.k8s.io/yaml"
 
-	v1alpha1 "github.com/MatchaScript/nanokube/internal/apis/bootstrap/v1alpha1"
-	"github.com/MatchaScript/nanokube/internal/layout"
+	v1alpha1 "github.com/MatchaScript/picokube/internal/apis/bootstrap/v1alpha1"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // Load reads the multi-document YAML at path, parses both the
-// NanoKubeConfig wrapper and the sibling kubeadm documents, applies
+// PicoKubeConfig wrapper and the sibling kubeadm documents, applies
 // defaults, validates, and returns the upstream kubeadm internal
 // InitConfiguration that downstream packages consume directly.
 func Load(path string, l layout.Layout) (*kubeadmapi.InitConfiguration, error) {
@@ -60,7 +60,7 @@ func parse(data []byte, source string, l layout.Layout) (*kubeadmapi.InitConfigu
 		}
 	}
 
-	// Pull the nanokube wrapper out of the map before handing the rest
+	// Pull the picokube wrapper out of the map before handing the rest
 	// to kubeadm. Otherwise kubeadm would emit an "Ignored configuration
 	// document" klog warning for our wrapper's GVK.
 	wrapper, err := extractWrapper(gvkmap, source)
@@ -99,23 +99,23 @@ func parse(data []byte, source string, l layout.Layout) (*kubeadmapi.InitConfigu
 	return kubeadmCfg, nil
 }
 
-func extractWrapper(gvkmap kubeadmapi.DocumentMap, source string) (*v1alpha1.NanoKubeConfig, error) {
-	nkGVK := schema.GroupVersionKind{
+func extractWrapper(gvkmap kubeadmapi.DocumentMap, source string) (*v1alpha1.PicoKubeConfig, error) {
+	pkGVK := schema.GroupVersionKind{
 		Group:   v1alpha1.GroupName,
 		Version: v1alpha1.Version,
 		Kind:    v1alpha1.Kind,
 	}
-	raw, ok := gvkmap[nkGVK]
+	raw, ok := gvkmap[pkGVK]
 	if !ok {
 		return nil, fmt.Errorf("parse %s: required document %s (kind=%s) not found", source, v1alpha1.APIVersion, v1alpha1.Kind)
 	}
-	delete(gvkmap, nkGVK)
+	delete(gvkmap, pkGVK)
 
-	nk := &v1alpha1.NanoKubeConfig{}
-	if err := yaml.UnmarshalStrict(raw, nk); err != nil {
-		return nil, fmt.Errorf("parse %s NanoKubeConfig: %w", source, err)
+	pk := &v1alpha1.PicoKubeConfig{}
+	if err := yaml.UnmarshalStrict(raw, pk); err != nil {
+		return nil, fmt.Errorf("parse %s PicoKubeConfig: %w", source, err)
 	}
-	return nk, nil
+	return pk, nil
 }
 
 func concatDocs(gvkmap kubeadmapi.DocumentMap) []byte {
@@ -134,16 +134,16 @@ func concatDocs(gvkmap kubeadmapi.DocumentMap) []byte {
 	return buf.Bytes()
 }
 
-// Marshal serialises a NanoKubeConfig wrapper plus a kubeadm
+// Marshal serialises a PicoKubeConfig wrapper plus a kubeadm
 // InitConfiguration as a multi-document YAML stream. The wrapper is
 // emitted via sigs.k8s.io/yaml; the kubeadm portion goes through
 // kubeadm's own MarshalInitConfigurationToBytes (which emits Init- and
 // ClusterConfiguration as separate documents and handles TypeMeta
 // inlining correctly).
 //
-// Used by `nanokube config print-defaults`. kubeadmCfg may be nil; in
+// Used by `picokube config print-defaults`. kubeadmCfg may be nil; in
 // that case only the wrapper is emitted.
-func Marshal(wrapper *v1alpha1.NanoKubeConfig, kubeadmCfg *kubeadmapi.InitConfiguration) ([]byte, error) {
+func Marshal(wrapper *v1alpha1.PicoKubeConfig, kubeadmCfg *kubeadmapi.InitConfiguration) ([]byte, error) {
 	wrapperBytes, err := yaml.Marshal(wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("marshal wrapper: %w", err)

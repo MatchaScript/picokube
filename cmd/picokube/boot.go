@@ -3,12 +3,12 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/MatchaScript/nanokube/internal/boot"
-	"github.com/MatchaScript/nanokube/internal/config"
-	"github.com/MatchaScript/nanokube/internal/version"
+	"github.com/MatchaScript/picokube/internal/boot"
+	"github.com/MatchaScript/picokube/internal/config"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
-// newBootCmd returns the hidden subcommand nanokube.service invokes.
+// newBootCmd returns the hidden subcommand picokube.service invokes.
 // Operators do not see this in help output; their supported verbs are
 // `init` and `reset`. `boot` runs the boot reconciliation
 // (restore-if-needed -> snapshot -> Ensure -> kubelet -> /readyz ->
@@ -19,7 +19,7 @@ import (
 func newBootCmd(g *globalOpts) *cobra.Command {
 	return &cobra.Command{
 		Use:    "boot",
-		Short:  "Internal: run the boot lifecycle (invoked by nanokube.service)",
+		Short:  "Internal: run the boot lifecycle (invoked by picokube.service)",
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -32,7 +32,7 @@ func newBootCmd(g *globalOpts) *cobra.Command {
 				return err
 			}
 			// Healthy boot complete. Park here until systemd asks us to
-			// stop — nanokube.service is Type=notify with no
+			// stop — picokube.service is Type=notify with no
 			// RemainAfterExit, so a clean exit would flip it to
 			// inactive and break any unit ordered After=us.
 			<-ctx.Done()

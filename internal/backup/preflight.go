@@ -6,7 +6,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // DefaultMinFreeBytes / DefaultHeadroomFactor are the defaults used by

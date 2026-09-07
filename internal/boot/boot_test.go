@@ -15,10 +15,10 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
 
-	"github.com/MatchaScript/nanokube/internal/certs"
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
-	"github.com/MatchaScript/nanokube/internal/state"
+	"github.com/MatchaScript/picokube/internal/certs"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/state"
 )
 
 func TestShortID(t *testing.T) {
@@ -145,7 +145,7 @@ func newTestConfig(t *testing.T) *kubeadmapi.InitConfiguration {
 	cfg.NodeRegistration.Name = "test-node"
 	cfg.LocalAPIEndpoint.AdvertiseAddress = "192.168.10.10"
 	cfg.LocalAPIEndpoint.BindPort = 6443
-	cfg.APIServer.CertSANs = []string{"nanokube.local", "10.0.0.5"}
+	cfg.APIServer.CertSANs = []string{"picokube.local", "10.0.0.5"}
 	cfg.CACertificateValidityPeriod = &metav1.Duration{Duration: 3650 * 24 * time.Hour}
 	cfg.CertificateValidityPeriod = &metav1.Duration{Duration: 365 * 24 * time.Hour}
 	return cfg

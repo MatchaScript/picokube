@@ -3,7 +3,7 @@ package v1alpha1
 import "testing"
 
 func TestSetDefaults_FillsWrapperTypeMeta(t *testing.T) {
-	c := &NanoKubeConfig{}
+	c := &PicoKubeConfig{}
 	SetDefaults(c)
 	if c.APIVersion != APIVersion {
 		t.Errorf("APIVersion = %q, want %q", c.APIVersion, APIVersion)
@@ -14,7 +14,7 @@ func TestSetDefaults_FillsWrapperTypeMeta(t *testing.T) {
 }
 
 func TestSetDefaults_PreservesUserValues(t *testing.T) {
-	c := &NanoKubeConfig{TypeMeta: TypeMeta{APIVersion: "other/v1", Kind: "Other"}}
+	c := &PicoKubeConfig{TypeMeta: TypeMeta{APIVersion: "other/v1", Kind: "Other"}}
 	SetDefaults(c)
 	if c.APIVersion != "other/v1" {
 		t.Errorf("APIVersion overwritten: got %q", c.APIVersion)

@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 func pathExists(p string) (bool, error) {
@@ -238,7 +238,7 @@ func loadLeafCert(l layout.Layout, leaf LeafKind) (*x509.Certificate, error) {
 
 // parseCertFile reads a PEM-encoded x509 cert from disk. Only the first
 // CERTIFICATE block is returned — for CAs we want the leaf-issuing cert,
-// which is always the first (and only) block in nanokube's files.
+// which is always the first (and only) block in picokube's files.
 func parseCertFile(path string) (*x509.Certificate, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {

@@ -8,10 +8,10 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
 
-	"github.com/MatchaScript/nanokube/internal/certs"
-	"github.com/MatchaScript/nanokube/internal/kubeadm"
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/certs"
+	"github.com/MatchaScript/picokube/internal/kubeadm"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layouttest"
 )
 
 func testInitConfig(t *testing.T) *kubeadmapi.InitConfiguration {
@@ -59,7 +59,7 @@ func TestEnsureProducesNonCertArtifacts(t *testing.T) {
 
 // Ensure must NOT produce super-admin.conf — the system:masters-bound
 // break-glass cred is created on demand by WriteSuperAdminKubeconfig
-// only (during `nanokube init`) and removed immediately after the
+// only (during `picokube init`) and removed immediately after the
 // cluster-admins CRB is seeded. If Ensure were to recreate it, every
 // reconcile boot would silently undo init's deletion.
 func TestEnsureDoesNotProduceSuperAdminKubeconfig(t *testing.T) {
@@ -78,7 +78,7 @@ func TestEnsureDoesNotProduceSuperAdminKubeconfig(t *testing.T) {
 }
 
 // WriteSuperAdminKubeconfig is the explicit, separate writer used by
-// initialize.Run and by `nanokube kubeconfig super-admin`. Together
+// initialize.Run and by `picokube kubeconfig super-admin`. Together
 // with the test above it pins the contract: super-admin.conf only
 // exists when something explicitly asks for it.
 func TestWriteSuperAdminKubeconfigProducesFile(t *testing.T) {

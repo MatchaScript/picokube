@@ -21,7 +21,7 @@ func (h *Helpers) DumpDiagnostics(outDir string) {
 		return
 	}
 
-	for _, u := range []string{"crio.service", "kubelet.service", "nanokube.service"} {
+	for _, u := range []string{"crio.service", "kubelet.service", "picokube.service"} {
 		short := strings.TrimSuffix(u, ".service")
 		h.captureCmd(filepath.Join(outDir, "systemctl-status-"+short+".txt"),
 			"systemctl", "status", "--no-pager", "--full", u)
@@ -29,10 +29,10 @@ func (h *Helpers) DumpDiagnostics(outDir string) {
 			"journalctl", "--no-pager", "-u", u, "-n", "200")
 	}
 
-	h.captureFile(filepath.Join(outDir, "nanokube-last-event.txt"),
-		"/var/lib/nanokube/state/last-event")
-	h.captureFile(filepath.Join(outDir, "nanokube-last-boot.json"),
-		"/var/lib/nanokube/state/last-boot.json")
+	h.captureFile(filepath.Join(outDir, "picokube-last-event.txt"),
+		"/var/lib/picokube/state/last-event")
+	h.captureFile(filepath.Join(outDir, "picokube-last-boot.json"),
+		"/var/lib/picokube/state/last-boot.json")
 
 	if _, err := os.Stat(h.kubeconfig); err == nil {
 		h.captureCmd(filepath.Join(outDir, "kubectl-get-nodes.txt"),

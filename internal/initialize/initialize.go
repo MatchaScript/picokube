@@ -1,4 +1,4 @@
-// Package initialize implements `nanokube init`: the one-time node
+// Package initialize implements `picokube init`: the one-time node
 // initialisation that mirrors `kubeadm init`'s scope.
 //
 // Run renders kubeadm artefacts to /etc/kubernetes, starts kubelet,
@@ -9,13 +9,13 @@
 // node, applies addons, and repoints kubelet.conf at the client
 // certificate kubelet rotates for itself. On success the cluster is
 // healthy and the operator's next step is `systemctl enable
-// nanokube.service` to put future reboots under supervisor control.
+// picokube.service` to put future reboots under supervisor control.
 // lifecycle.Boot handles every reboot from then on as a pure reconcile.
 //
 // Recovery: a partial Run (e.g. /readyz never came up) leaves the node
 // in a state state.Exists() detects, so a retry surfaces a clear
 // "already exists; run reset" error. The operator-recovery path is
-// uniform: `nanokube reset --yes` then `nanokube init`.
+// uniform: `picokube reset --yes` then `picokube init`.
 package initialize
 
 import (
@@ -30,22 +30,22 @@ import (
 	nodebootstraptoken "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/markcontrolplane"
 
-	"github.com/MatchaScript/nanokube/internal/backup"
-	"github.com/MatchaScript/nanokube/internal/certs"
-	"github.com/MatchaScript/nanokube/internal/healthcheck"
-	"github.com/MatchaScript/nanokube/internal/kubeadm"
-	"github.com/MatchaScript/nanokube/internal/kubeclient"
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/ostree"
-	"github.com/MatchaScript/nanokube/internal/preflight"
-	"github.com/MatchaScript/nanokube/internal/state"
+	"github.com/MatchaScript/picokube/internal/backup"
+	"github.com/MatchaScript/picokube/internal/certs"
+	"github.com/MatchaScript/picokube/internal/healthcheck"
+	"github.com/MatchaScript/picokube/internal/kubeadm"
+	"github.com/MatchaScript/picokube/internal/kubeclient"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/ostree"
+	"github.com/MatchaScript/picokube/internal/preflight"
+	"github.com/MatchaScript/picokube/internal/state"
 )
 
 // Run executes the full one-time init. out receives human-readable
-// progress logs (operator's terminal during `nanokube init`). Returns
+// progress logs (operator's terminal during `picokube init`). Returns
 // nil only if the cluster is verified healthy at function exit.
 //
-// cfg is the kubeadm InitConfiguration parsed by config.Load; nanokube
+// cfg is the kubeadm InitConfiguration parsed by config.Load; picokube
 // does not add a configuration layer on top. NodeRegistration.Name has
 // already been filled in by kubeadm's SetNodeRegistrationDynamicDefaults
 // from the system hostname, so a separate nodeName argument is no
@@ -60,7 +60,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 
 	checks := []preflight.Preflighter{
-		preflight.FSWritable{Dirs: []string{l.NanoKubeVarDir, l.KubernetesDir}},
+		preflight.FSWritable{Dirs: []string{l.PicoKubeVarDir, l.KubernetesDir}},
 	}
 	if isOSTree {
 		checks = append(checks, backup.SpacePreflighter{Layout: l})
@@ -104,7 +104,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	if err := removeSuperAdminKubeconfig(l); err != nil {
 		return err
 	}
-	logf("removed super-admin.conf (regenerate via `nanokube kubeconfig super-admin` if needed)")
+	logf("removed super-admin.conf (regenerate via `picokube kubeconfig super-admin` if needed)")
 
 	if err := waitControlPlane(ctx, client, nodeName, logf); err != nil {
 		return err
@@ -136,7 +136,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 
 	logf("init complete (node=%s, version=%s)", nodeName, selfVersion)
-	logf("next step: `systemctl enable nanokube.service`")
+	logf("next step: `systemctl enable picokube.service`")
 	return nil
 }
 
@@ -209,7 +209,7 @@ const (
 //
 // A timeout here is not fatal: the cluster is already healthy, and the
 // only consequence is that kubelet.conf keeps the embedded bootstrap
-// certificate until the next `nanokube boot` finalizes it. Failing init
+// certificate until the next `picokube boot` finalizes it. Failing init
 // over it would send the operator down the reset+init path for
 // something that fixes itself on reboot.
 func finalizeKubeletKubeconfig(ctx context.Context, l layout.Layout, logf func(string, ...any)) error {

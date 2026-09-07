@@ -2,14 +2,14 @@
 // use from *_test.go files. Kept in a separate package from layout
 // because importing testing in a non-test .go file would pull
 // testing.init()'s flag.CommandLine registrations into the production
-// nanokube binary (visible as bogus -test.* flags on the CLI).
+// picokube binary (visible as bogus -test.* flags on the CLI).
 package layouttest
 
 import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/layout"
 )
 
 // New builds a layout.Layout whose every path lives under t.TempDir().
@@ -20,16 +20,16 @@ func New(t testing.TB) layout.Layout {
 	root := t.TempDir()
 	kdir := filepath.Join(root, "etc/kubernetes")
 	pki := filepath.Join(kdir, "pki")
-	nkvar := filepath.Join(root, "var/lib/nanokube")
+	nkvar := filepath.Join(root, "var/lib/picokube")
 	stateDir := filepath.Join(nkvar, "state")
 	backups := filepath.Join(nkvar, "backups")
 	kubelet := filepath.Join(root, "var/lib/kubelet")
-	configDir := filepath.Join(root, "etc/nanokube")
+	configDir := filepath.Join(root, "etc/picokube")
 	mfs := filepath.Join(kdir, "manifests")
 	return layout.Layout{
 		ConfigDir:             configDir,
 		ConfigFile:            filepath.Join(configDir, "config.yaml"),
-		NanoKubeVarDir:        nkvar,
+		PicoKubeVarDir:        nkvar,
 		StateDir:              stateDir,
 		LastBootFile:          filepath.Join(stateDir, "last-boot.json"),
 		LastEventFile:         filepath.Join(stateDir, "last-event"),

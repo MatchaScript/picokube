@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MatchaScript/nanokube/internal/layout"
-	"github.com/MatchaScript/nanokube/internal/version"
+	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
 type globalOpts struct {
@@ -26,16 +26,16 @@ func newRootCmdWithOpts(opts *globalOpts) *cobra.Command {
 		opts.configPath = opts.layout.ConfigFile
 	}
 	cmd := &cobra.Command{
-		Use:           "nanokube",
+		Use:           "picokube",
 		Short:         "Minimal single-node Kubernetes for bootc-style edge deployments",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	cmd.PersistentFlags().StringVar(&opts.configPath, "config", opts.configPath, "path to NanoKubeConfig YAML")
+	cmd.PersistentFlags().StringVar(&opts.configPath, "config", opts.configPath, "path to PicoKubeConfig YAML")
 	cmd.AddCommand(
 		newInitCmd(opts),
 		newResetCmd(opts),
-		newBootCmd(opts), // hidden, invoked by nanokube.service
+		newBootCmd(opts), // hidden, invoked by picokube.service
 		newHealthcheckCmd(opts),
 		newConfigCmd(opts),
 		newKubeconfigCmd(opts),
@@ -50,7 +50,7 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print build and target versions",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintf(cmd.OutOrStdout(), "nanokube   kubernetes=%s commit=%s built=%s\n",
+			fmt.Fprintf(cmd.OutOrStdout(), "picokube   kubernetes=%s commit=%s built=%s\n",
 				version.KubernetesVersion, version.GitCommit, version.BuildDate)
 			return nil
 		},

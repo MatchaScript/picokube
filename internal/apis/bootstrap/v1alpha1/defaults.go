@@ -4,7 +4,7 @@ package v1alpha1
 // embedded kubeadm documents is handled by kubeadm's own defaulters
 // during config.Load (BytesToInitConfiguration); nothing in this
 // package should attempt to mirror that work.
-func SetDefaults(c *NanoKubeConfig) {
+func SetDefaults(c *PicoKubeConfig) {
 	if c.APIVersion == "" {
 		c.APIVersion = APIVersion
 	}
@@ -13,11 +13,11 @@ func SetDefaults(c *NanoKubeConfig) {
 	}
 }
 
-// NewDefault returns a NanoKubeConfig wrapper with apiVersion / kind
+// NewDefault returns a PicoKubeConfig wrapper with apiVersion / kind
 // populated and an empty Spec. Used by `config print-defaults` as the
 // seed before the surrounding kubeadm documents are appended.
-func NewDefault() *NanoKubeConfig {
-	c := &NanoKubeConfig{
+func NewDefault() *PicoKubeConfig {
+	c := &PicoKubeConfig{
 		Metadata: ObjectMeta{Name: "local"},
 	}
 	SetDefaults(c)

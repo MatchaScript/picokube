@@ -5,17 +5,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MatchaScript/nanokube/internal/teardown"
+	"github.com/MatchaScript/picokube/internal/teardown"
 )
 
 func newResetCmd(g *globalOpts) *cobra.Command {
 	var confirm bool
 	cmd := &cobra.Command{
 		Use:   "reset",
-		Short: "Tear down all nanokube-managed state (matches `kubeadm reset --force`)",
+		Short: "Tear down all picokube-managed state (matches `kubeadm reset --force`)",
 		Long: "Stops kubelet, lazy-unmounts /var/lib/kubelet, removes every CRI " +
 			"pod sandbox, and wipes /etc/kubernetes, /var/lib/etcd, " +
-			"/var/lib/kubelet, /var/lib/nanokube. Network state (CNI interfaces, " +
+			"/var/lib/kubelet, /var/lib/picokube. Network state (CNI interfaces, " +
 			"iptables, IPVS, nftables) is left untouched — clean it up manually " +
 			"if you need a pristine slate. Intended for test beds or when " +
 			"re-initialising from scratch.",
