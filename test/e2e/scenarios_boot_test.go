@@ -4,8 +4,11 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/MatchaScript/nanokube/test/e2etest"
 )
 
 // Test07Boot_ServiceBootsToReady starts nanokube.service and waits
@@ -39,7 +42,7 @@ func (s *NanokubeE2ESuite) Test08Boot_AdminRBACBound() {
 
 // Test09Boot_NodeMarkedControlPlane verifies the markcontrolplane
 // phase ran (the control-plane label is present) and that the
-// nodeRegistration.taints=[] in the e2e config (set by setup.sh)
+// nodeRegistration.taints=[] in the e2e config (written by the suite)
 // flowed through to MarkControlPlane — the default control-plane
 // taint must NOT be present.
 // Mirrors bash :test_normal_node_marked_controlplane.
@@ -79,4 +82,65 @@ func (s *NanokubeE2ESuite) Test10Boot_AddonsDeployed() {
 	// is missing if -o name is used; confirm a non-empty resource name.
 	out := s.H.Kubectl("-n", "kube-system", "get", "deployment", "coredns", "-o", "name")
 	s.Require().Equal("deployment.apps/coredns", strings.TrimSpace(out))
+}
+
+// Test10Boot_KubeletCSRApprovedAndIssued asserts kubelet's certificate
+// rotation completes end to end: kubelet asks for its own client
+// certificate via the CSR API, and the csrapprover controller approves
+// and issues it. Approval needs system:nodes bound to the
+// selfnodeclient ClusterRole (nodebootstraptoken's
+// AutoApproveNodeCertificateRotation); without that binding the CSR
+// sits Pending forever and this is the only test that would notice.
+//
+// Sorts after Test10Boot_AddonsDeployed and before Test11 under
+// testify's lexicographic dispatch, so it runs on the booted cluster.
+func (s *NanokubeE2ESuite) Test10Boot_KubeletCSRApprovedAndIssued() {
+	const signer = "kubernetes.io/kube-apiserver-client-kubelet"
+	user := "system:node:" + s.H.NodeName()
+
+	var name string
+	err := e2etest.Retry(30, 2*time.Second, func() error {
+		raw, err := s.H.KubectlRaw("get", "csr", "-o", "json")
+		if err != nil {
+			return err
+		}
+		var list struct {
+			Items []struct {
+				Metadata struct {
+					Name string `json:"name"`
+				} `json:"metadata"`
+				Spec struct {
+					SignerName string `json:"signerName"`
+					Username   string `json:"username"`
+				} `json:"spec"`
+				Status struct {
+					// Non-empty certificate is what kubectl prints as
+					// the "Issued" half of Approved,Issued.
+					Certificate []byte `json:"certificate"`
+					Conditions  []struct {
+						Type   string `json:"type"`
+						Status string `json:"status"`
+					} `json:"conditions"`
+				} `json:"status"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal([]byte(raw), &list); err != nil {
+			return fmt.Errorf("parse csr list: %w", err)
+		}
+		for _, csr := range list.Items {
+			if csr.Spec.SignerName != signer || csr.Spec.Username != user {
+				continue
+			}
+			for _, c := range csr.Status.Conditions {
+				if c.Type == "Approved" && c.Status == "True" && len(csr.Status.Certificate) > 0 {
+					name = csr.Metadata.Name
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("no Approved,Issued CSR for %s (signer %s) among %d CSRs",
+			user, signer, len(list.Items))
+	})
+	s.Require().NoError(err, "kubelet client certificate never issued")
+	s.T().Logf("kubelet rotation CSR %s is Approved,Issued", name)
 }

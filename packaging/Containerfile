@@ -9,7 +9,17 @@
 FROM docker.io/library/golang:1.25 AS gobuild
 WORKDIR /src
 COPY . .
-RUN CGO_ENABLED=0 go build -o /out/nanokube ./cmd/nanokube
+# The e2e suite is baked in and always built: it is how the image gets
+# verified, and a second image variant would be the thing that then goes
+# untested. CGO_ENABLED=0 so both binaries run on the Fedora rootfs.
+#
+# Cache mounts keep the module and build caches out of the committed layer;
+# k8s.io/kubernetes alone is several hundred thousand small files, and
+# unpacking that layer is what exhausts btrfs metadata on the build host.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -o /out/nanokube ./cmd/nanokube && \
+    CGO_ENABLED=0 go test -c -tags e2e -o /out/e2e.test ./test/e2e
 
 FROM quay.io/fedora/fedora-bootc:44 AS builder
 ARG KUBE_MINOR=1.35
@@ -36,7 +46,31 @@ COPY --from=builder /target-rootfs/ /
 RUN sed -i 's|"/opt/cni/bin"|"/var/lib/cni/bin"|g' /etc/crio/crio.conf && \
     sed -i 's|"/opt/cni/net.d"|"/etc/cni/net.d"|g' /etc/crio/crio.conf
 
+# The packaged default network keeps the node Ready before a CNI is installed,
+# but it claims the bridge name every CNI expects to own. flannel then refuses
+# it ("cni0 already has an IP address different from 10.244.0.1/24") and no pod
+# gets a sandbox. Rename the default bridge; the CNI the user installs takes
+# cni0, and pods created before it keep working on this one.
+RUN sed -i 's|"bridge": "cni0"|"bridge": "crio0"|' /etc/cni/net.d/100-crio-bridge.conflist
+
+# CNI DaemonSets install their plugin by writing to the hostPath /opt/cni/bin
+# (flannel's install-cni-plugin init container, for one). /opt is a real
+# directory on the read-only root here, not the usual symlink into /var, so
+# that write fails with EROFS. Point it at the writable directory CRI-O now
+# scans first.
+RUN ln -s /var/lib/cni /opt/cni
+
+# kubeadm's kube-controller-manager manifest mounts the flexvolume directory
+# unconditionally with hostPath DirectoryOrCreate. /usr is read-only on a bootc
+# host, so kubelet's mkdir fails and the pod never leaves ContainerCreating;
+# the directory has to exist in the image. Flatcar carries the same fix at OS
+# level (scripts/changelog/changes/2023-10-09-kubernetes-usr-libexec.md), as a
+# symlink to a writable path — a plain directory is enough here because nothing
+# installs flexvolume plugins on this node.
+RUN mkdir -p /usr/libexec/kubernetes/kubelet-plugins/volume/exec
+
 COPY --from=gobuild /out/nanokube /usr/bin/nanokube
+COPY --from=gobuild /out/e2e.test /usr/libexec/nanokube/e2e.test
 COPY packaging/systemd/kubelet.service packaging/systemd/nanokube.service /usr/lib/systemd/system/
 COPY packaging/systemd/10-nanokube.conf /usr/lib/systemd/system/multi-user.target.d/
 COPY packaging/modules-load.d/nanokube.conf /usr/lib/modules-load.d/

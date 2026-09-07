@@ -3,6 +3,8 @@
 package e2e
 
 import (
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/MatchaScript/nanokube/test/e2etest"
 )
 
@@ -60,4 +62,28 @@ func (s *NanokubeE2ESuite) Test04Init_WritesAllArtifacts() {
 // recovery path is `reset --yes` then `init`, exercised by Test16.)
 func (s *NanokubeE2ESuite) Test05Init_RefusesWhenStateExists() {
 	s.H.NanokubeExpectFail("init")
+}
+
+// Test06Init_KubeletConfIsPathReference asserts init's kubelet-finalize
+// step left kubelet.conf pointing at the certificate kubelet rotates for
+// itself, with no embedded credential. certs.Init writes the credential
+// inline; kubelet treats it as a bootstrap cert and it expires after a
+// year, so a kubelet.conf that still carries it would go stale on the
+// node (kubeadm.FinalizeKubeletKubeconfig, mirroring kubeadm's
+// kubelet-finalize phase).
+func (s *NanokubeE2ESuite) Test06Init_KubeletConfIsPathReference() {
+	const pem = "/var/lib/kubelet/pki/kubelet-client-current.pem"
+	e2etest.AssertFilePresent(s.T(), pem, "rotated kubelet client certificate")
+
+	cfg, err := clientcmd.LoadFromFile("/etc/kubernetes/kubelet.conf")
+	s.Require().NoError(err, "load kubelet.conf")
+	kctx, ok := cfg.Contexts[cfg.CurrentContext]
+	s.Require().Truef(ok, "current-context %q not in context list", cfg.CurrentContext)
+	info, ok := cfg.AuthInfos[kctx.AuthInfo]
+	s.Require().Truef(ok, "no user %q for current-context", kctx.AuthInfo)
+
+	s.Require().Equal(pem, info.ClientCertificate, "client-certificate is not a path reference")
+	s.Require().Equal(pem, info.ClientKey, "client-key is not a path reference")
+	s.Require().Empty(info.ClientCertificateData, "client-certificate-data still embedded")
+	s.Require().Empty(info.ClientKeyData, "client-key-data still embedded")
 }

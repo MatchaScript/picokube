@@ -8,15 +8,17 @@ bootc image rather than installed at runtime.
 ## Build
 
 `packaging/Containerfile` produces the bootc node image: a Fedora 44 bootc
-host carrying kubelet, CRI-O, kubectl, the `nanokube` binary and its units.
+host carrying kubelet, CRI-O, kubectl, the `nanokube` binary and its units,
+plus the e2e suite as `/usr/libexec/nanokube/e2e.test`.
 
 ```
-podman build --cap-add=all --security-opt=label=disable --device /dev/fuse \
-    -t coralcoast-node:dev -f packaging/Containerfile .
+TMPDIR=/var/tmp podman build --cap-add=all --security-opt=label=disable \
+    --device /dev/fuse -t coralcoast-node:dev -f packaging/Containerfile .
 ```
 
 The extra podman flags are what `bootc-base-imagectl build-rootfs` needs to
-run `rpm-ostree compose` (bwrap) inside the build container.
+run `rpm-ostree compose` (bwrap) inside the build container. `TMPDIR` has to
+point off tmpfs — the `FROM scratch` COPY otherwise runs out of memory.
 
 Boot it with bcvk:
 
@@ -24,9 +26,31 @@ Boot it with bcvk:
 bcvk ephemeral run-ssh --rm coralcoast-node:dev
 ```
 
-kubelet stays in `activating` until `nanokube init` has written
-`/var/lib/kubelet/config.yaml`; CRI-O comes up on its own. Neither unit is
-enabled — `multi-user.target.d/10-nanokube.conf` upholds them.
+CRI-O comes up on its own: it has no `[Install]` section, so
+`multi-user.target.d/10-nanokube.conf` upholds it. kubelet is not upheld and
+not enabled — `nanokube init` and `nanokube boot` start it, and `nanokube
+reset` stops it.
+
+## Test
+
+```
+go test ./...        # unit
+hack/e2e.sh          # end to end
+```
+
+`hack/e2e.sh` builds the image and runs the baked suite inside an ephemeral
+VM, exiting with the suite's status:
+
+```
+bcvk ephemeral run-ssh --rm --memory 4G --vcpus 2 coralcoast-node:dev -- \
+    /usr/libexec/nanokube/e2e.test -test.v
+```
+
+The suite drives init → boot → workload → reset against the real node and
+provisions only `/etc/nanokube/config.yaml`, which depends on the node's
+address and hostname (see `test/e2e/doc.go`). `bcvk ephemeral` boots the
+container rootfs directly, so `/run/ostree-booted` is absent and the
+ostree-gated backup/restore paths of `nanokube boot` are not exercised.
 
 ## Configuration
 

@@ -1,14 +1,27 @@
 //go:build e2e
 
 // Package e2e is nanokube's end-to-end suite. It drives the full
-// bootstrap → boot → workload → reset lifecycle on a single Ubuntu
-// host that already ships kubelet, CRI-O, kubectl, and crictl (see
-// test/e2e/setup.sh for provisioning).
+// bootstrap → boot → workload → reset lifecycle from inside a VM
+// booted off the bootc node image (packaging/Containerfile), which
+// already carries kubelet, CRI-O, kubectl, crictl, the sysctls and the
+// units nanokube expects. The only host state the suite provisions is
+// /etc/nanokube/config.yaml, which depends on the node's address and
+// hostname and so cannot live in the image.
 //
 // The suite is gated by //go:build e2e — `go test ./...` does not see
 // it, only `go test -tags e2e ./test/e2e/...` does. It must run as
 // root (the binary mutates /etc/kubernetes, /var/lib/etcd, …) and
 // will refuse to start otherwise.
+//
+// It ships as a binary baked into the image rather than as a `go test`
+// run: the image has no Go toolchain and no source tree. hack/e2e.sh
+// builds the image and runs it:
+//
+//	go test -c -tags e2e -o e2e.test ./test/e2e   (in the Containerfile)
+//	bcvk ephemeral run-ssh --rm <image> -- /usr/libexec/nanokube/e2e.test -test.v
+//
+// `ephemeral run-ssh` is the bcvk mode that propagates the guest
+// command's exit status, so the suite's result is the script's result.
 //
 // Method ordering is load-bearing. Tests are named TestNN_Group_Case
 // and run alphabetically by reflect.Type.Method order (testify's
@@ -19,12 +32,6 @@
 //
 // Env vars:
 //
-//	NANOKUBE_E2E_KEEP=1         keep /tmp/nanokube-e2e-<pid> after the
-//	                            suite (default: kept only on failure)
-//	NANOKUBE_E2E_SKIP_SETUP=1   skip bash setup.sh in SetupSuite (use
-//	                            when iterating against an already
-//	                            provisioned host)
-//	NANOKUBE_E2E_PREBUILT=1     skip `go build` + install in SetupSuite
-//	                            (CI sets this because it builds in a
-//	                            prior step)
+//	NANOKUBE_E2E_KEEP=1   keep /tmp/nanokube-e2e-<pid> after the suite
+//	                      (default: kept only on failure)
 package e2e

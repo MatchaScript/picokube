@@ -3,13 +3,13 @@
 package e2e
 
 import (
-	"bytes"
 	"fmt"
+	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
+	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/stretchr/testify/suite"
@@ -20,17 +20,22 @@ import (
 const (
 	binPath    = "/usr/bin/nanokube"
 	kubeconfig = "/etc/kubernetes/admin.conf"
-	flannelURL = "https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
+	configPath = "/etc/nanokube/config.yaml"
+	criSocket  = "unix:///var/run/crio/crio.sock"
+	podSubnet  = "10.244.0.0/16"
+	// Pinned: `latest` would silently retarget the data-plane test at a
+	// release nobody has run here. v0.28.9 is flannel-io/flannel's latest
+	// tag (GitHub releases API, checked 2026-09-07).
+	flannelURL = "https://github.com/flannel-io/flannel/releases/download/v0.28.9/kube-flannel.yml"
 )
 
 // NanokubeE2ESuite drives the full bootstrap → boot → workload → reset
-// lifecycle on a single Ubuntu host. State carries between tests;
-// methods are named TestNN_Group_Case so testify's lexicographic
-// dispatch order preserves the bash suite's ordering.
+// lifecycle on the bootc node image, from inside the VM. State carries
+// between tests; methods are named TestNN_Group_Case so testify's
+// lexicographic dispatch order preserves the bash suite's ordering.
 type NanokubeE2ESuite struct {
 	suite.Suite
 
-	repoRoot   string
 	binPath    string
 	kubeconfig string
 	nodeName   string
@@ -40,50 +45,121 @@ type NanokubeE2ESuite struct {
 	testStart  time.Time
 
 	keepArtifacts bool
-	skipSetup     bool
-	prebuilt      bool
 
 	H *e2etest.Helpers
 }
 
-// SetupSuite runs once at the start: root check, env, paths, build,
-// host provisioning via bash setup.sh.
+// SetupSuite runs once at the start: root check, env, paths, and the
+// host state that is not image content — /etc/nanokube/config.yaml and
+// the absence of a previous run's artefacts.
 func (s *NanokubeE2ESuite) SetupSuite() {
 	if os.Geteuid() != 0 {
-		s.T().Fatal("e2e suite must run as root (try `sudo -E env \"PATH=$PATH\" go test -tags e2e ...`)")
+		s.T().Fatal("e2e suite must run as root (it is meant to run as /usr/libexec/nanokube/e2e.test inside the node image; see hack/e2e.sh)")
 	}
 
 	s.binPath = binPath
 	s.kubeconfig = kubeconfig
 	s.T().Setenv("KUBECONFIG", s.kubeconfig)
 
-	host, err := os.Hostname()
-	s.Require().NoError(err, "os.Hostname")
-	s.nodeName = strings.ToLower(host)
+	s.nodeName = s.pinHostname()
 
 	s.keepArtifacts = os.Getenv("NANOKUBE_E2E_KEEP") == "1"
-	s.skipSetup = os.Getenv("NANOKUBE_E2E_SKIP_SETUP") == "1"
-	s.prebuilt = os.Getenv("NANOKUBE_E2E_PREBUILT") == "1"
-
-	s.repoRoot = findRepoRoot(s.T())
-	s.T().Logf("repo root: %s", s.repoRoot)
 
 	s.dumpRoot = filepath.Join(os.TempDir(), fmt.Sprintf("nanokube-e2e-%d", os.Getpid()))
 	s.Require().NoError(os.MkdirAll(s.dumpRoot, 0o755))
 	s.T().Logf("dump root: %s", s.dumpRoot)
 
-	if !s.prebuilt {
-		s.buildAndInstall()
-	}
-
-	if !s.skipSetup {
-		s.runSetupScript()
-	}
-
-	// H is (re)bound to the per-test t in SetupTest; this initial
-	// construction is just so helpers using the suite-level t (e.g. in
-	// SetupSuite itself, if ever added) don't dereference nil.
+	// H is rebound to the per-test t in SetupTest; the suite-level
+	// binding is what writeConfig and cleanLeftovers report through.
 	s.H = s.newHelpers()
+
+	s.writeConfig()
+	s.cleanLeftovers()
+}
+
+// pinHostname makes the node name immovable for the rest of the run and
+// returns it.
+//
+// The image ships no /etc/hostname, so the hostname is transient and
+// NetworkManager replaces it with whatever DHCP or a reverse lookup of the
+// leased address yields — which can land minutes into the run. kubelet takes
+// its node name from the hostname, so a rename after `nanokube init` makes it
+// re-register under a new name, and every authorization on
+// system:node:<name> then fails ("node 'x' cannot read 'y'"). A static
+// hostname takes precedence over NetworkManager's, so write one before init.
+func (s *NanokubeE2ESuite) pinHostname() string {
+	host, err := os.Hostname()
+	s.Require().NoError(err, "os.Hostname")
+	name := strings.ToLower(host)
+	s.Require().NoError(os.WriteFile("/etc/hostname", []byte(name+"\n"), 0o644),
+		"pin static hostname")
+	s.Require().NoError(syscall.Sethostname([]byte(name)), "apply hostname")
+	s.T().Logf("hostname pinned to %s", name)
+	return name
+}
+
+// writeConfig seeds /etc/nanokube/config.yaml from `nanokube config
+// print-defaults` and overrides the fields that depend on this host, so
+// the image itself can stay host-independent:
+//
+//   - localAPIEndpoint.advertiseAddress: this host's routable address, so
+//     the apiserver SAN matches.
+//   - nodeRegistration.taints: an explicit empty list, so the lone
+//     control-plane node is schedulable for the workload connectivity
+//     test. `taints: null` means "use the default control-plane taint".
+//   - nodeRegistration.criSocket: CRI-O. Left unset, kubeadm autodetects
+//     and trips on any second CRI endpoint.
+//   - nodeRegistration.name: this host's lowercased hostname, matching
+//     what the assertions look up (pod/etcd-<hostname>). The
+//     print-defaults stub is `name: node`.
+//   - networking.podSubnet: kubeadm's default omits it, which leaves the
+//     flannel of Test11 crash-looping on "failed to acquire lease".
+//
+// Every InitConfiguration field touched here lives at 2-space indent in
+// the multi-document stream print-defaults emits. A rewrite that does not
+// land fails the suite here rather than as a confusing downstream error.
+func (s *NanokubeE2ESuite) writeConfig() {
+	ip := s.routableIP()
+	out, _ := s.H.Nanokube("config", "print-defaults")
+
+	for _, r := range []struct{ pattern, repl, want string }{
+		{`(?m)^(  advertiseAddress: ).*$`, "${1}" + ip, "advertiseAddress: " + ip},
+		{`(?m)^(  taints:)\s+null$`, "${1} []", "taints: []"},
+		{`(?m)^(  criSocket: ).*$`, "${1}" + criSocket, "criSocket: " + criSocket},
+		{`(?m)^(  name: )node$`, "${1}" + s.nodeName, "name: " + s.nodeName},
+		{`(?m)^networking:$`, "networking:\n  podSubnet: " + podSubnet, "podSubnet: " + podSubnet},
+	} {
+		out = regexp.MustCompile(r.pattern).ReplaceAllString(out, r.repl)
+		s.Require().Containsf(out, r.want, "config rewrite %s did not land", r.pattern)
+	}
+
+	s.Require().NoError(os.MkdirAll(filepath.Dir(configPath), 0o755))
+	s.Require().NoError(os.WriteFile(configPath, []byte(out), 0o644))
+	s.T().Logf("wrote %s (advertiseAddress=%s, name=%s)", configPath, ip, s.nodeName)
+}
+
+// routableIP returns the source address the kernel picks for off-link
+// traffic — the equivalent of `hostname -I | awk '{print $1}'` without
+// depending on which interface the VM came up on. The UDP socket is
+// never written to, so nothing leaves the host.
+func (s *NanokubeE2ESuite) routableIP() string {
+	c, err := net.Dial("udp", "1.1.1.1:80")
+	s.Require().NoError(err, "pick routable source address")
+	defer c.Close()
+	return c.LocalAddr().(*net.UDPAddr).IP.String()
+}
+
+// cleanLeftovers removes the artefacts of a previous run so the suite can
+// be re-run against a long-lived debug VM. A fresh ephemeral VM has none
+// of these; reset is best-effort for the same reason.
+func (s *NanokubeE2ESuite) cleanLeftovers() {
+	if _, err := os.Stat("/etc/kubernetes"); err == nil {
+		s.T().Log("previous run detected; resetting")
+		_, _, _ = s.H.NanokubeRaw("reset", "--yes")
+	}
+	for _, p := range []string{"/etc/kubernetes", "/var/lib/etcd", "/var/lib/kubelet", "/var/lib/nanokube"} {
+		s.Require().NoError(os.RemoveAll(p))
+	}
 }
 
 func (s *NanokubeE2ESuite) newHelpers() *e2etest.Helpers {
@@ -136,68 +212,4 @@ func (s *NanokubeE2ESuite) TearDownTest() {
 		s.T().Logf("artifacts: %s", s.currentDir)
 	}
 	s.T().Logf("test %q done in %s", s.T().Name(), time.Since(s.testStart))
-}
-
-func (s *NanokubeE2ESuite) buildAndInstall() {
-	s.T().Log("building nanokube binary")
-	tmpBin := filepath.Join(s.T().TempDir(), "nanokube")
-	cmd := exec.Command("go", "build", "-o", tmpBin, "./cmd/nanokube")
-	cmd.Dir = s.repoRoot
-	cmd.Stdout = testWriter{s.T()}
-	cmd.Stderr = testWriter{s.T()}
-	s.Require().NoError(cmd.Run(), "go build")
-
-	install := exec.Command("install", "-m", "0755", tmpBin, s.binPath)
-	var out bytes.Buffer
-	install.Stdout = &out
-	install.Stderr = &out
-	s.Require().NoError(install.Run(), "install nanokube: %s", out.String())
-}
-
-func (s *NanokubeE2ESuite) runSetupScript() {
-	script := filepath.Join(s.repoRoot, "test", "e2e", "setup.sh")
-	s.T().Logf("running %s", script)
-	cmd := exec.Command("bash", script)
-	cmd.Stdout = testWriter{s.T()}
-	cmd.Stderr = testWriter{s.T()}
-	cmd.Env = os.Environ()
-	s.Require().NoError(cmd.Run(), "setup.sh")
-}
-
-// findRepoRoot walks up from this source file's directory until it
-// finds go.mod. Falls back to the suite's working directory.
-func findRepoRoot(t TestingT) string {
-	_, here, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	dir := filepath.Dir(here)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not locate go.mod above " + here)
-		}
-		dir = parent
-	}
-}
-
-// TestingT is the minimal testing surface findRepoRoot uses; lets the
-// helper stay testable without depending on testify.
-type TestingT interface {
-	Fatal(args ...any)
-}
-
-// testWriter is an io.Writer that forwards each Write to t.Logf,
-// streaming subprocess output through the test log rather than
-// buffering for failure-time dump.
-type testWriter struct {
-	t interface{ Logf(string, ...any) }
-}
-
-func (w testWriter) Write(p []byte) (int, error) {
-	w.t.Logf("%s", strings.TrimRight(string(p), "\n"))
-	return len(p), nil
 }
