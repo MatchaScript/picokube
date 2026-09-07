@@ -406,6 +406,16 @@ picokube init
 systemctl enable --now picokube.service
 systemctl is-active picokube.service
 
+# Whether greenboot judges this node before picokube.service is active
+# decides whether the next reboot loops. bcvk 0.17, which
+# bootc-ubuntu-setup installs, has no --log-dir, so a looping guest leaves
+# no console behind — record the ordering here, while the guest still
+# answers.
+systemctl show -p After greenboot-healthcheck.service
+systemctl show -p After picokube.service
+grub2-editenv - list || echo "no grubenv"
+journalctl -u greenboot-healthcheck -b --no-pager
+
 export ` + kubeconfig + `
 kubectl create deployment e2e-nginx --image=nginx:alpine
 kubectl expose deployment e2e-nginx --port=80 --target-port=80
