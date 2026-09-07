@@ -6,7 +6,7 @@ package version
 // KubernetesVersion is the single k8s minor this picokube build targets.
 // picokube minor == kubelet minor is a hard constraint; the entire boot
 // flow and config defaults are pinned to this value.
-var KubernetesVersion = "v1.35.0"
+var KubernetesVersion = "v1.36.4"
 
 // GitCommit is the commit hash of the picokube source tree at build time.
 var GitCommit = "unknown"

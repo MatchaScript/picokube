@@ -109,7 +109,7 @@ func removeKubeContainers(logf logFn) {
 		logf("connect CRI runtime (continuing): %v", err)
 		return
 	}
-	defer rt.Close()
+	defer rt.Close(context.Background())
 
 	sandboxes, err := rt.ListKubeContainers()
 	if err != nil {

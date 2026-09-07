@@ -39,7 +39,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: v1.35.0
+kubernetesVersion: v1.36.4
 networking:
   serviceSubnet: 10.96.0.0/12
   podSubnet: 10.244.0.0/16
@@ -117,7 +117,7 @@ func TestLoad_RejectsMismatchedKubernetesVersion(t *testing.T) {
 	// the one pinned in this image — kubeadm itself rejects unparseable
 	// values (e.g. v0.0.1-evil) before our gate runs, so the gate-under
 	// -test is only reachable with a version kubeadm accepts.
-	body := strings.Replace(minimalConfig, "kubernetesVersion: v1.35.0", "kubernetesVersion: v1.34.0", 1)
+	body := strings.Replace(minimalConfig, "kubernetesVersion: v1.36.4", "kubernetesVersion: v1.34.0", 1)
 	_, err := Load(writeTempFile(t, body), l)
 	if err == nil || !strings.Contains(err.Error(), "kubernetesVersion") {
 		t.Fatalf("Load = %v; want kubernetesVersion mismatch error", err)
@@ -130,7 +130,7 @@ func TestLoad_RejectsMismatchedKubernetesVersion(t *testing.T) {
 // version upstream released last.
 func TestLoad_UnsetKubernetesVersionInheritsPinnedVersion(t *testing.T) {
 	l := layouttest.New(t)
-	body := strings.Replace(minimalConfig, "kubernetesVersion: v1.35.0\n", "", 1)
+	body := strings.Replace(minimalConfig, "kubernetesVersion: v1.36.4\n", "", 1)
 	cfg, err := Load(writeTempFile(t, body), l)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -171,7 +171,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
-kubernetesVersion: v1.35.0
+kubernetesVersion: v1.36.4
 networking:
   serviceSubnet: 10.96.0.0/12
   podSubnet: 10.244.0.0/16

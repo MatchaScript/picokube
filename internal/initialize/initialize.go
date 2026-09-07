@@ -95,7 +95,7 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		return err
 	}
 
-	client, err := initAdminRBAC(l)
+	client, err := initAdminRBAC(l, &cfg.LocalAPIEndpoint)
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@
 #
 #   podman build -t picokube-node:dev -f packaging/Containerfile .
 
-FROM docker.io/library/golang:1.25 AS gobuild
+FROM docker.io/library/golang:1.26 AS gobuild
 WORKDIR /src
 COPY . .
 # The e2e suite is baked in and always built: it is how the image gets
@@ -29,7 +29,7 @@ FROM quay.io/fedora/fedora-bootc:44@sha256:71e4c657272bba6c9c21c5825b26faec58fdf
 
 # Must match the k8s.io/kubernetes minor in go.mod: the suite exercises the
 # embedded kubeadm against the kubelet installed here.
-ARG KUBE_MINOR=v1.35
+ARG KUBE_MINOR=v1.36
 
 COPY packaging/overlay.d/10-kubernetes/ /
 

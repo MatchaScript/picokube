@@ -20,7 +20,7 @@ podman build -t picokube-node:dev -f packaging/Containerfile .
 No special podman flags: the image is a plain `dnf install` on top of
 `quay.io/fedora/fedora-bootc:44`.
 
-`KUBE_MINOR` (default `v1.35`) pins the pkgs.k8s.io and openSUSE CRI-O repos
+`KUBE_MINOR` (default `v1.36`) pins the pkgs.k8s.io and openSUSE CRI-O repos
 through `/etc/dnf/vars/kubever` and `criover`, so it selects the kubelet,
 kubectl and CRI-O minor. It must match the `k8s.io/kubernetes` minor in
 `go.mod`: the suite exercises the embedded kubeadm against the kubelet

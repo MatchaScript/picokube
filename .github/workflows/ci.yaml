@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'release-*' ]
   pull_request:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.25.8'
+          go-version: '1.26.7'
           cache: true
 
       - name: go vet
