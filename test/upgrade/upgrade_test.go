@@ -186,6 +186,35 @@ func dumpConsole(t *testing.T, vm string) {
 	t.Logf("console tail of %s (%d lines):\n%s", vm, len(lines), strings.Join(lines, "\n"))
 }
 
+// guestStateScript prints everything that decides whether greenboot rolls a
+// deployment back. show() swallows each command's status so one absent unit or
+// missing directory cannot cut the dump short — a non-zero exit here is data,
+// not a failure.
+const guestStateScript = `
+show() { echo "=== $* ==="; "$@" 2>&1 || echo "(exit $?)"; }
+show systemctl is-active picokube.service
+show systemctl is-failed picokube.service
+show systemctl list-jobs
+show journalctl -u picokube.service -b --no-pager
+show journalctl -u greenboot-healthcheck -b --no-pager
+show journalctl -u greenboot-set-rollback-trigger --no-pager
+show grub2-editenv - list
+show ls -l /var/lib/picokube/backups/
+show bootc status --json
+`
+
+// dumpGuestState logs what the guest thinks happened. Best effort in both
+// directions: the guest may have gone away, and a dump never decides a result.
+func dumpGuestState(t *testing.T, vm, when string) {
+	t.Helper()
+	out, err := sshTry(t, vm, guestStateScript)
+	if err != nil {
+		t.Logf("guest state (%s) unavailable: %v", when, err)
+		return
+	}
+	t.Logf("guest state (%s):\n%s", when, out)
+}
+
 // bootID identifies the running kernel boot, so a reboot can be waited for
 // without racing the sshd that is still up on the way down.
 func bootID(t *testing.T, vm string) string {
@@ -313,6 +342,7 @@ func waitBootedDigest(t *testing.T, vm, want string, timeout time.Duration) {
 		}
 		if time.Now().After(deadline) {
 			dumpConsole(t, vm)
+			dumpGuestState(t, vm, "rollback timed out")
 			t.Fatalf("guest never rolled back to %s within %s (last seen %q)", want, timeout, last)
 		}
 		time.Sleep(20 * time.Second)
@@ -719,6 +749,11 @@ func TestRollback(t *testing.T) {
 	before := bootID(t, vm)
 	reboot(t, vm)
 	waitNewBoot(t, vm, before, 10*time.Minute)
+
+	// The state as of the first boot on TO, before the wait below can
+	// obscure it: whether picokube.service failed, whether greenboot judged
+	// it, and what it left in the grub environment.
+	dumpGuestState(t, vm, "first boot on TO")
 
 	// greenboot: GREENBOOT_MAX_BOOT_ATTEMPTS=3, each attempt running
 	// `picokube healthcheck --timeout=5m` from required.d, then red.d and
