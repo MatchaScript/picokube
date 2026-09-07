@@ -10,7 +10,7 @@
 #
 #   podman build -t picokube-node:dev -f packaging/Containerfile .
 
-FROM docker.io/library/golang:1.26 AS gobuild
+FROM docker.io/library/golang:1.27 AS gobuild
 WORKDIR /src
 COPY . .
 # The e2e suite is baked in and always built: it is how the image gets
