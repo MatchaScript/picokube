@@ -778,10 +778,22 @@ func TestRollback(t *testing.T) {
 	t.Log("step: wait for picokube.service to reconcile the restored data")
 	waitUnitActive(t, vm, "picokube.service", 10*time.Minute)
 
+	// What greenboot did on the last boot of TO — counter exhaustion or the
+	// forced fallback path — decides how many boots the count below sees.
+	t.Logf("greenboot on the previous boot:\n%s",
+		ssh(t, vm, "journalctl -u greenboot-healthcheck -b -1 --no-pager || echo '(no previous boot in the journal)'"))
+
+	// maybeRestore writes "restored backup <name>" (internal/boot/boot.go:344),
+	// and the tail of the same healthy boot overwrites last-event with
+	// "healthy at <version>" (:283). So last-event reports the boot, not the
+	// restore; the restore itself is durable only in the journal.
 	event := strings.TrimSpace(ssh(t, vm, "cat "+lastEventFile))
 	t.Logf("last-event: %s", event)
-	require.Truef(t, strings.HasPrefix(event, "restored backup "),
-		"last-event %q does not report a restore", event)
+
+	restoreLog := ssh(t, vm, "journalctl -u picokube.service -b --no-pager")
+	t.Logf("picokube.service on the restored boot:\n%s", restoreLog)
+	require.Containsf(t, restoreLog, "restoring backup "+from.backup,
+		"the boot after the rollback did not restore the backup taken before the switch")
 
 	require.Equal(t, "absent",
 		strings.TrimSpace(ssh(t, vm, "test -e "+restoreMarker+" && echo present || echo absent")),
