@@ -40,9 +40,15 @@ podman build -t "$TO_IMAGE" -f packaging/Containerfile .
 # overlay containers-storage mounts under /var/lib/containers then defeats
 # the `rm -rf /var/lib/containers` bcvk's install script starts with. The
 # base image the node image is built on carries no container engine.
-# Canonical name@digest, which is how containers-storage resolves it.
+#
+# The digest the Containerfile pins is dropped: bcvk's installer copies the
+# source out of containers-storage into the target, and a digested reference
+# resolves to the manifest list, which refuses the copy ("Copying this image
+# would require changing layer representation ... Destination specifies a
+# digest"). The tag is enough — this deployment is thrown away by the first
+# `bootc switch`, so it is not part of what the scenarios assert on.
 BASE_IMAGE=${BASE_IMAGE:-$(awk '/^FROM quay.io\/fedora\/fedora-bootc/{print $2; exit}' \
-    packaging/Containerfile | sed 's/:[^@]*@/@/')}
+    packaging/Containerfile | sed 's/@sha256:.*//')}
 podman pull "$BASE_IMAGE"
 
 # The worktree is only an input to the build; drop it before the long test
