@@ -47,8 +47,9 @@ refused for want of a boot counter.
 ## Test
 
 ```
-go test ./...        # unit
-hack/e2e.sh          # end to end
+go test ./...          # unit
+hack/e2e.sh            # end to end
+hack/e2e-upgrade.sh    # minor upgrade and rollback
 ```
 
 `hack/e2e.sh` builds the image and runs the baked suite inside an ephemeral
@@ -64,6 +65,31 @@ provisions only `/etc/picokube/config.yaml`, which depends on the node's
 address and hostname (see `test/e2e/doc.go`). `bcvk ephemeral` boots the
 container rootfs directly, so `/run/ostree-booted` is absent and the
 ostree-gated backup/restore paths of `picokube boot` are not exercised.
+
+`hack/e2e-upgrade.sh` covers what ephemeral cannot. It builds the previous
+minor from the `release-1.35` branch and the current tree into two images,
+then runs the host-side driver in `test/upgrade` (build tag `upgrade`), which
+installs the base image to a disk with `bcvk libvirt run`, `bootc switch`es
+into the old image out of the host's container storage, brings a cluster up on
+it, then switches to the new image and reboots. The install starts from the
+base image because bcvk boots the source image as its own installer, and its
+install script cannot clear `/var/lib/containers` while the crio.service that
+`multi-user.target` upholds has an overlay mounted there.
+
+That detour costs the rollback scenario one thing, which the driver puts back.
+`bootupd` composes `/boot/grub2/grub.cfg` once, during `bootc install`, from
+the installing image's `/usr/lib/bootupd/grub2-static` — and the snippet that
+decrements greenboot's `boot_counter` ships there, in the greenboot package the
+base image does not carry. `bootc switch` adds a boot entry without re-running
+`bootupd`, so the driver recomposes the file the same way `bootupd` does before
+enabling `picokube.service`. Without it greenboot re-reads a counter that never
+reaches zero and reboots for ever instead of rolling back. One scenario asserts the upgrade — new deployment, `upgraded
+v1.35.x -> v1.36.y` in `last-event`, 1.36 control plane, workload still
+served; the other pins the old minor in `config.yaml` so the new image
+refuses to boot, and asserts greenboot exhausts its boot counter, bootc rolls
+back and `picokube boot` restores the backup. It needs libvirt 11 or newer
+(`bcvk --bind-storage-ro` attaches the container store as read-only virtiofs)
+and no sudo; the `upgrade` job in CI runs it on every push and pull request.
 
 ## Configuration
 

@@ -31,6 +31,9 @@ jobs:
       - name: go vet (e2e tag)
         run: go vet -tags e2e ./test/e2e/...
 
+      - name: go vet (upgrade tag)
+        run: go vet -tags upgrade ./test/upgrade/...
+
       - name: gofmt
         run: |
           unformatted=$(gofmt -l $(go list -f '{{.Dir}}' ./... | grep -v '/reference/'))
@@ -68,3 +71,35 @@ jobs:
 
       - name: Build the node image and run the suite
         run: hack/e2e.sh
+
+  # ---------------------------------------------------------------------------
+  # Minor-upgrade e2e — builds the previous minor from release-1.35 and the
+  # current tree, then drives a `bootc switch` and a greenboot rollback in a
+  # libvirt VM (hack/e2e-upgrade.sh). Two image builds plus two VM lifecycles,
+  # hence the longer budget.
+  # ---------------------------------------------------------------------------
+  upgrade:
+    name: Minor upgrade e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      # fetch-depth: 0 so release-1.35 can be checked out into a worktree for
+      # the FROM image.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Same action and pin as the e2e job. The plucky apt repo it adds brings
+      # libvirt 11, which is what --bind-storage-ro's read-only virtiofs needs.
+      - uses: bootc-dev/actions/bootc-ubuntu-setup@c8b1f7f7b446a842228cb8e5123f670fd30436bf
+        with:
+          libvirt: 'true'
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.7'
+          cache: true
+
+      - name: Build both node images and run the upgrade scenarios
+        run: hack/e2e-upgrade.sh
