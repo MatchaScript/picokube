@@ -37,6 +37,13 @@ CRI-O comes up on its own: the image does not enable it, so
 not enabled — `picokube init` and `picokube boot` start it, and `picokube
 reset` stops it.
 
+`greenboot-healthcheck` is enabled, which through its `Also=` also enables
+`greenboot-set-rollback-trigger`. Its checks come from `packaging/greenboot/`,
+copied to `/etc/greenboot/` — `check/required.d` and `check/wanted.d` are where
+greenboot 0.16 looks. On an ephemeral VM there is no cluster and no
+`/boot/grub2/grubenv`, so the boot is reported RED and greenboot's reboot is
+refused for want of a boot counter.
+
 ## Test
 
 ```

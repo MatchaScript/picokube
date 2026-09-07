@@ -5,13 +5,18 @@
 # whichever deployment bootc returns us to.
 #
 # The marker lives under /var/lib, which is preserved across bootc
-# rollback; the restore action that consumes it is
-# lifecycle.maybeRestore (see internal/lifecycle/boot.go).
+# rollback; the restore action that consumes it is maybeRestore (see
+# internal/boot/boot.go).
 set -eu
 
 # Only act when greenboot has decided the next boot is a rollback. On
 # non-rollback failure iterations (boot_counter still > 0) we must not
 # pre-commit to restoring, because the boot may simply be retried.
+#
+# greenboot runs red.d before it inspects boot_counter (greenboot-rs
+# src/main.rs:381 run_red, :392 get_boot_counter), and the counter is
+# decremented by GRUB at boot, not by greenboot (grub2/08_greenboot.cfg:13).
+# So on the attempt that trips the rollback the value already reads 0.
 if ! grub2-editenv - list 2>/dev/null | grep -q '^boot_counter=0' ; then
     echo "picokube: boot_counter != 0, not requesting restore"
     exit 0

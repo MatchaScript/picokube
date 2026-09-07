@@ -57,7 +57,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
 # mid-run, which would break every system:node:<name> authorization).
 RUN systemctl mask NetworkManager NetworkManager-wait-online \
     NetworkManager-cloud-setup && \
-    systemctl enable systemd-networkd systemd-resolved sshd
+    systemctl enable systemd-networkd systemd-resolved sshd greenboot-healthcheck
 
 # The cri-o rpm ships its default bridge disabled. It is what keeps the node
 # Ready before a CNI is installed — `picokube init` waits for Ready. Enable it,
