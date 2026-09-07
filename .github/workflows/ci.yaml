@@ -17,7 +17,7 @@ jobs:
     name: Go unit tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Installs a current podman, the qemu/libvirt stack and bcvk, adds the
       # udev rule that lets an unprivileged user open /dev/kvm, raises the fd
