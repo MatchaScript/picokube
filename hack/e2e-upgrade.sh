@@ -18,19 +18,15 @@ FROM_BRANCH=${FROM_BRANCH:-release-1.35}
 FROM_IMAGE=${FROM_IMAGE:-picokube-node:from}
 TO_IMAGE=${TO_IMAGE:-picokube-node:to}
 
-# A fresh CI clone has the remote-tracking ref but no local branch; a
-# developer checkout usually has both.
-if ! git rev-parse --verify --quiet "$FROM_BRANCH" >/dev/null ; then
-    git fetch origin "$FROM_BRANCH:$FROM_BRANCH"
-fi
+git fetch origin "$FROM_BRANCH"
 
 worktree=$(mktemp -d -t picokube-from-XXXXXX)
 cleanup() { git worktree remove --force "$worktree" >/dev/null 2>&1 || rm -rf "$worktree" ; }
 trap cleanup EXIT
 
-# --detach: the branch may already be checked out elsewhere, and the build
-# only needs the tree.
-git worktree add --detach "$worktree" "$FROM_BRANCH"
+# origin/<branch> rather than a local branch: it is what the fetch above just
+# updated, and detaching never collides with a checkout elsewhere.
+git worktree add --detach "$worktree" "origin/$FROM_BRANCH"
 podman build -t "$FROM_IMAGE" -f "$worktree/packaging/Containerfile" "$worktree"
 podman build -t "$TO_IMAGE" -f packaging/Containerfile .
 
