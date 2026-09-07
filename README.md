@@ -74,7 +74,16 @@ into the old image out of the host's container storage, brings a cluster up on
 it, then switches to the new image and reboots. The install starts from the
 base image because bcvk boots the source image as its own installer, and its
 install script cannot clear `/var/lib/containers` while the crio.service that
-`multi-user.target` upholds has an overlay mounted there. One scenario asserts the upgrade — new deployment, `upgraded
+`multi-user.target` upholds has an overlay mounted there.
+
+That detour costs the rollback scenario one thing, which the driver puts back.
+`bootupd` composes `/boot/grub2/grub.cfg` once, during `bootc install`, from
+the installing image's `/usr/lib/bootupd/grub2-static` — and the snippet that
+decrements greenboot's `boot_counter` ships there, in the greenboot package the
+base image does not carry. `bootc switch` adds a boot entry without re-running
+`bootupd`, so the driver recomposes the file the same way `bootupd` does before
+enabling `picokube.service`. Without it greenboot re-reads a counter that never
+reaches zero and reboots for ever instead of rolling back. One scenario asserts the upgrade — new deployment, `upgraded
 v1.35.x -> v1.36.y` in `last-event`, 1.36 control plane, workload still
 served; the other pins the old minor in `config.yaml` so the new image
 refuses to boot, and asserts greenboot exhausts its boot counter, bootc rolls
