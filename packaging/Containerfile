@@ -1,10 +1,14 @@
-# coralcoast node image: a Fedora bootc host carrying everything nanokube
-# expects to already be present (kubelet, CRI-O, kubectl) plus the nanokube
-# binary and its units. Modelled on bootc-dev/bink's node image
-# (node-images/fedora/Containerfile).
+# The node image the e2e suite runs on: a Fedora bootc host carrying
+# everything nanokube expects to already be present (kubelet, CRI-O, kubectl,
+# CNI plugins) plus the nanokube binary, its units and the compiled e2e suite.
+# It is a test fixture, not a release artefact — releases are the nanokube
+# binary and its units, per Kubernetes minor.
 #
-#   podman build --cap-add=all --security-opt=label=disable --device /dev/fuse \
-#       -t coralcoast-node:dev -f packaging/Containerfile .
+# Layout follows homelab's containers/bootc/kubernetes/base.Containerfile: the
+# kubelet/CRI-O RPMs come from pkgs.k8s.io and the openSUSE cri-o repo, pinned
+# to one minor through /etc/dnf/vars.
+#
+#   podman build -t coralcoast-node:dev -f packaging/Containerfile .
 
 FROM docker.io/library/golang:1.25 AS gobuild
 WORKDIR /src
@@ -21,37 +25,50 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -o /out/nanokube ./cmd/nanokube && \
     CGO_ENABLED=0 go test -c -tags e2e -o /out/e2e.test ./test/e2e
 
-FROM quay.io/fedora/fedora-bootc:44 AS builder
-ARG KUBE_MINOR=1.35
-# openssh-clients: bcvk runs this same image as the supervising container and
-# execs `ssh` inside it (bcvk crates/kit/src/ssh.rs build_podman_ssh_command),
-# so the client has to be in the image, not just the server.
-RUN /usr/libexec/bootc-base-imagectl build-rootfs \
-    --manifest=minimal \
-    --no-docs \
-    --install NetworkManager \
-    --install openssh-server \
-    --install openssh-clients \
-    --install kubernetes${KUBE_MINOR} \
-    --install kubernetes${KUBE_MINOR}-client \
-    --install cri-o${KUBE_MINOR} \
-    --install cri-tools${KUBE_MINOR} \
-    /target-rootfs
+FROM quay.io/fedora/fedora-bootc:44@sha256:71e4c657272bba6c9c21c5825b26faec58fdfacf4b62e7643c98d3f50a3a3541
 
-FROM scratch AS root
-COPY --from=builder /target-rootfs/ /
+# Must match the k8s.io/kubernetes minor in go.mod: the suite exercises the
+# embedded kubeadm against the kubelet installed here.
+ARG KUBE_MINOR=v1.35
 
-# CRI-O's packaged defaults point at /opt/cni; move them to the paths the
-# CNI plugins a user drops in actually use.
-RUN sed -i 's|"/opt/cni/bin"|"/var/lib/cni/bin"|g' /etc/crio/crio.conf && \
-    sed -i 's|"/opt/cni/net.d"|"/etc/cni/net.d"|g' /etc/crio/crio.conf
+COPY packaging/overlay.d/10-kubernetes/ /
 
-# The packaged default network keeps the node Ready before a CNI is installed,
-# but it claims the bridge name every CNI expects to own. flannel then refuses
-# it ("cni0 already has an IP address different from 10.244.0.1/24") and no pod
-# gets a sandbox. Rename the default bridge; the CNI the user installs takes
-# cni0, and pods created before it keep working on this one.
-RUN sed -i 's|"bridge": "cni0"|"bridge": "crio0"|' /etc/cni/net.d/100-crio-bridge.conflist
+# Both repo files interpolate these ($kubever, $criover), so one arg pins the
+# kubelet, kubectl and CRI-O minor together.
+RUN echo "$KUBE_MINOR" > /etc/dnf/vars/kubever && \
+    echo "$KUBE_MINOR" > /etc/dnf/vars/criover
+
+# crun, container-selinux, systemd-resolved and openssh-server are already in
+# fedora-bootc:44. containernetworking-plugins is the loopback plugin CRI-O
+# needs for every sandbox; cri-tools is crictl, which the suite shells out to.
+RUN dnf install -y --setopt=install_weak_deps=False \
+    --setopt=tsflags=nodocs \
+    cri-o \
+    kubelet \
+    kubectl \
+    cri-tools \
+    containernetworking-plugins \
+    systemd-networkd \
+    greenboot
+
+# NetworkManager ships enabled in the base. Removing it takes dracut-network,
+# kdump-utils and clevis-dracut with it, so mask instead: networkd owns the
+# NIC, and only networkd leaves the hostname alone (no reverse-lookup rename
+# mid-run, which would break every system:node:<name> authorization).
+RUN systemctl mask NetworkManager NetworkManager-wait-online \
+    NetworkManager-cloud-setup && \
+    systemctl enable systemd-networkd systemd-resolved sshd
+
+# The cri-o rpm ships its default bridge disabled. It is what keeps the node
+# Ready before a CNI is installed — `nanokube init` waits for Ready. Enable it,
+# but rename the bridge: the shipped name is the one every CNI expects to own,
+# and flannel then refuses it ("cni0 already has an IP address different from
+# 10.244.0.1/24") and no pod gets a sandbox. Pods created before the real CNI
+# keep working on crio0.
+RUN mv /etc/cni/net.d/*-crio-bridge.conflist.disabled \
+       /etc/cni/net.d/100-crio-bridge.conflist && \
+    sed -i 's|"bridge": "[^"]*"|"bridge": "crio0"|' \
+       /etc/cni/net.d/100-crio-bridge.conflist
 
 # CNI DaemonSets install their plugin by writing to the hostPath /opt/cni/bin
 # (flannel's install-cni-plugin init container, for one). /opt is a real
@@ -71,13 +88,15 @@ RUN mkdir -p /usr/libexec/kubernetes/kubelet-plugins/volume/exec
 
 COPY --from=gobuild /out/nanokube /usr/bin/nanokube
 COPY --from=gobuild /out/e2e.test /usr/libexec/nanokube/e2e.test
-COPY packaging/systemd/kubelet.service packaging/systemd/nanokube.service /usr/lib/systemd/system/
+COPY packaging/systemd/nanokube.service /usr/lib/systemd/system/
 COPY packaging/systemd/10-nanokube.conf /usr/lib/systemd/system/multi-user.target.d/
-COPY packaging/modules-load.d/nanokube.conf /usr/lib/modules-load.d/
-COPY packaging/sysctl.d/99-nanokube.conf /usr/lib/sysctl.d/
 COPY packaging/crictl.yaml /etc/crictl.yaml
 COPY packaging/greenboot/ /etc/greenboot/
 
+# bootc lint warns on both of these: var-log for /var/log/dnf5.log and
+# var-tmpfiles for the /var/lib and /var/cache directories dnf left without
+# tmpfiles.d entries. /run/dnf trips nonempty-run-tmp.
+RUN dnf clean all && rm -rf /var/{log,cache,lib}/* /run/dnf
 RUN bootc container lint
 
 LABEL containers.bootc 1

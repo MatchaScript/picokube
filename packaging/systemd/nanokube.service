@@ -8,9 +8,9 @@ After=crio.service network-online.target
 # still 'activating' systemd would queue our own inline
 # `systemctl start kubelet.service` behind that activation and the
 # readyz wait would deadlock. We prevent kubelet from racing ahead by
-# shipping kubelet.service without an [Install] section, so it cannot
-# be enabled and multi-user.target cannot pull it in independently of
-# nanokube.
+# leaving kubelet.service disabled in the image, so multi-user.target
+# cannot pull it in independently of nanokube (see
+# packaging/systemd/10-nanokube.conf).
 
 [Service]
 Type=notify

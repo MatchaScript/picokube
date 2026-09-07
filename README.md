@@ -7,18 +7,24 @@ bootc image rather than installed at runtime.
 
 ## Build
 
-`packaging/Containerfile` produces the bootc node image: a Fedora 44 bootc
-host carrying kubelet, CRI-O, kubectl, the `nanokube` binary and its units,
-plus the e2e suite as `/usr/libexec/nanokube/e2e.test`.
+`packaging/Containerfile` produces the node image the e2e suite runs on: a
+Fedora 44 bootc host carrying kubelet, CRI-O, kubectl, the `nanokube` binary
+and its units, plus the e2e suite as `/usr/libexec/nanokube/e2e.test`. It
+exists to run `hack/e2e.sh`; what nanokube releases is the binary and its
+units, one release per Kubernetes minor.
 
 ```
-TMPDIR=/var/tmp podman build --cap-add=all --security-opt=label=disable \
-    --device /dev/fuse -t coralcoast-node:dev -f packaging/Containerfile .
+podman build -t coralcoast-node:dev -f packaging/Containerfile .
 ```
 
-The extra podman flags are what `bootc-base-imagectl build-rootfs` needs to
-run `rpm-ostree compose` (bwrap) inside the build container. `TMPDIR` has to
-point off tmpfs — the `FROM scratch` COPY otherwise runs out of memory.
+No special podman flags: the image is a plain `dnf install` on top of
+`quay.io/fedora/fedora-bootc:44`.
+
+`KUBE_MINOR` (default `v1.35`) pins the pkgs.k8s.io and openSUSE CRI-O repos
+through `/etc/dnf/vars/kubever` and `criover`, so it selects the kubelet,
+kubectl and CRI-O minor. It must match the `k8s.io/kubernetes` minor in
+`go.mod`: the suite exercises the embedded kubeadm against the kubelet
+installed here.
 
 Boot it with bcvk:
 
@@ -26,7 +32,7 @@ Boot it with bcvk:
 bcvk ephemeral run-ssh --rm coralcoast-node:dev
 ```
 
-CRI-O comes up on its own: it has no `[Install]` section, so
+CRI-O comes up on its own: the image does not enable it, so
 `multi-user.target.d/10-nanokube.conf` upholds it. kubelet is not upheld and
 not enabled — `nanokube init` and `nanokube boot` start it, and `nanokube
 reset` stops it.

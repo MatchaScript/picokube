@@ -18,12 +18,7 @@ IMAGE=${IMAGE:-coralcoast-node:dev}
 MEMORY=${MEMORY:-4G}
 VCPUS=${VCPUS:-2}
 
-# bootc-base-imagectl needs several GB of scratch space; the default TMPDIR
-# is tmpfs and the `FROM scratch` COPY runs it out of memory.
-export TMPDIR=${TMPDIR:-/var/tmp}
-
-podman build --cap-add=all --security-opt=label=disable --device /dev/fuse \
-    -t "$IMAGE" -f packaging/Containerfile .
+podman build -t "$IMAGE" -f packaging/Containerfile .
 
 exec bcvk ephemeral run-ssh --rm --memory "$MEMORY" --vcpus "$VCPUS" "$IMAGE" -- \
     /usr/libexec/nanokube/e2e.test -test.v -test.timeout 30m
