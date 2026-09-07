@@ -416,6 +416,15 @@ systemctl show -p After picokube.service
 grub2-editenv - list || echo "no grubenv"
 journalctl -u greenboot-healthcheck -b --no-pager
 
+# Whether greenboot can ever roll back depends on GRUB decrementing
+# boot_counter, which only happens if greenboot's /etc/grub.d/08_greenboot.cfg
+# made it into the generated grub config. bootc install sets ostree's
+# sysroot.bootloader=none (bootc crates/lib/src/install.rs:232), which skips
+# grub2-mkconfig, so print what the installed config actually contains.
+ostree config --repo=/sysroot/ostree/repo get sysroot.bootloader || echo "no sysroot.bootloader"
+ls /etc/grub.d/
+grep -rl boot_counter /boot/grub2/ /boot/efi/EFI/ 2>/dev/null || echo "no boot_counter logic in the installed grub config"
+
 export ` + kubeconfig + `
 kubectl create deployment e2e-nginx --image=nginx:alpine
 kubectl expose deployment e2e-nginx --port=80 --target-port=80
