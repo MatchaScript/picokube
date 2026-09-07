@@ -31,6 +31,9 @@ jobs:
       - name: go vet (e2e tag)
         run: go vet -tags e2e ./test/e2e/...
 
+      - name: go vet (upgrade tag)
+        run: go vet -tags upgrade ./test/upgrade/...
+
       - name: gofmt
         run: |
           unformatted=$(gofmt -l $(go list -f '{{.Dir}}' ./... | grep -v '/reference/'))

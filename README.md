@@ -69,9 +69,12 @@ ostree-gated backup/restore paths of `picokube boot` are not exercised.
 `hack/e2e-upgrade.sh` covers what ephemeral cannot. It builds the previous
 minor from the `release-1.35` branch and the current tree into two images,
 then runs the host-side driver in `test/upgrade` (build tag `upgrade`), which
-installs the old image to a disk with `bcvk libvirt run`, brings a cluster up
-on it, `bootc switch`es to the new image out of the host's container storage
-and reboots. One scenario asserts the upgrade — new deployment, `upgraded
+installs the base image to a disk with `bcvk libvirt run`, `bootc switch`es
+into the old image out of the host's container storage, brings a cluster up on
+it, then switches to the new image and reboots. The install starts from the
+base image because bcvk boots the source image as its own installer, and its
+install script cannot clear `/var/lib/containers` while the crio.service that
+`multi-user.target` upholds has an overlay mounted there. One scenario asserts the upgrade — new deployment, `upgraded
 v1.35.x -> v1.36.y` in `last-event`, 1.36 control plane, workload still
 served; the other pins the old minor in `config.yaml` so the new image
 refuses to boot, and asserts greenboot exhausts its boot counter, bootc rolls

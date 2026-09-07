@@ -34,10 +34,22 @@ git worktree add --detach "$worktree" "$FROM_BRANCH"
 podman build -t "$FROM_IMAGE" -f "$worktree/packaging/Containerfile" "$worktree"
 podman build -t "$TO_IMAGE" -f packaging/Containerfile .
 
+# The driver installs this image to disk and switches into FROM from there.
+# It cannot install FROM directly: bcvk boots the source image as its own
+# installer, our image's multi-user.target upholds crio.service, and the
+# overlay containers-storage mounts under /var/lib/containers then defeats
+# the `rm -rf /var/lib/containers` bcvk's install script starts with. The
+# base image the node image is built on carries no container engine.
+# Canonical name@digest, which is how containers-storage resolves it.
+BASE_IMAGE=${BASE_IMAGE:-$(awk '/^FROM quay.io\/fedora\/fedora-bootc/{print $2; exit}' \
+    packaging/Containerfile | sed 's/:[^@]*@/@/')}
+podman pull "$BASE_IMAGE"
+
 # The worktree is only an input to the build; drop it before the long test
 # so the exec below can propagate the driver's exit status.
 cleanup
 trap - EXIT
 
-exec env PICOKUBE_UPGRADE_FROM="$FROM_IMAGE" PICOKUBE_UPGRADE_TO="$TO_IMAGE" \
+exec env PICOKUBE_UPGRADE_BASE="$BASE_IMAGE" \
+    PICOKUBE_UPGRADE_FROM="$FROM_IMAGE" PICOKUBE_UPGRADE_TO="$TO_IMAGE" \
     go test -tags upgrade -count=1 -timeout 60m -v ./test/upgrade

@@ -10,9 +10,11 @@
 // through `bootc install to-disk`. Every guest step goes through
 // `bcvk libvirt ssh`.
 //
-// Inputs are two locally built images, normally produced by
-// hack/e2e-upgrade.sh:
+// Inputs are three images, normally supplied by hack/e2e-upgrade.sh:
 //
+//	PICOKUBE_UPGRADE_BASE   the base the node image is built on; what bcvk
+//	                        installs to disk, because it carries no container
+//	                        engine to trip bcvk's installer (see arrange)
 //	PICOKUBE_UPGRADE_FROM   previous minor, built from release-1.35
 //	PICOKUBE_UPGRADE_TO     current tree
 //
@@ -405,8 +407,18 @@ type fromState struct {
 	coreDNS string
 }
 
-// arrange boots FROM, brings a cluster up on it, reboots once, and records
-// what the post-switch assertions compare against.
+// arrange installs the base image, switches into FROM, brings a cluster up
+// on it, reboots once, and records what the post-switch assertions compare
+// against.
+//
+// FROM cannot be installed directly. bcvk boots the source image as its own
+// installer and its install script begins with `rm -rf /var/lib/containers`;
+// the node image's multi-user.target upholds crio.service
+// (packaging/systemd/10-picokube.conf), so containers-storage has an overlay
+// mounted under that path by then and the rm fails with EBUSY. The base
+// image the node image is built on carries no container engine, and reaching
+// FROM through a `bootc switch` costs one boot and keeps the images under
+// test byte-identical to what ships.
 //
 // The extra reboot is load-bearing. `picokube init` records last-boot.json
 // under the *current* boot id, so the first picokube.service run skips the
@@ -416,9 +428,14 @@ type fromState struct {
 // asserts on, and the one the rollback scenario's maybeRestore has to find
 // (boot.go:323). nginx goes in before that reboot so it is inside the
 // backup and survives the restore.
-func arrange(t *testing.T, fromImage string) fromState {
+func arrange(t *testing.T, baseImage, fromImage string) fromState {
 	t.Helper()
-	vm := startVM(t, fromImage)
+	vm := startVM(t, baseImage)
+
+	switchTo(t, vm, fromImage)
+	before := bootID(t, vm)
+	reboot(t, vm)
+	waitNewBoot(t, vm, before, 10*time.Minute)
 
 	version := kubernetesVersion.FindStringSubmatch(ssh(t, vm, "picokube version"))[1]
 	t.Logf("FROM targets Kubernetes %s", version)
@@ -427,7 +444,7 @@ func arrange(t *testing.T, fromImage string) fromState {
 	t.Log(ssh(t, vm, bringUpScript))
 
 	t.Log("step: reboot inside FROM so the next boot snapshots it")
-	before := bootID(t, vm)
+	before = bootID(t, vm)
 	reboot(t, vm)
 	waitNewBoot(t, vm, before, 10*time.Minute)
 	waitUnitActive(t, vm, "picokube.service", 10*time.Minute)
@@ -499,10 +516,11 @@ func requireReadonlyVirtiofs(t *testing.T) {
 // workload it had before.
 func TestUpgrade(t *testing.T) {
 	requireReadonlyVirtiofs(t)
+	baseImage := requireEnv(t, "PICOKUBE_UPGRADE_BASE")
 	fromImage := requireEnv(t, "PICOKUBE_UPGRADE_FROM")
 	toImage := requireEnv(t, "PICOKUBE_UPGRADE_TO")
 
-	from := arrange(t, fromImage)
+	from := arrange(t, baseImage, fromImage)
 	vm := from.vm
 
 	switchTo(t, vm, toImage)
@@ -574,10 +592,11 @@ echo "coredns=$(kubectl -n kube-system get deployment coredns -o jsonpath='{.spe
 // the backup the red.d hook asked for.
 func TestRollback(t *testing.T) {
 	requireReadonlyVirtiofs(t)
+	baseImage := requireEnv(t, "PICOKUBE_UPGRADE_BASE")
 	fromImage := requireEnv(t, "PICOKUBE_UPGRADE_FROM")
 	toImage := requireEnv(t, "PICOKUBE_UPGRADE_TO")
 
-	from := arrange(t, fromImage)
+	from := arrange(t, baseImage, fromImage)
 	vm := from.vm
 
 	t.Log("step: pin the FROM minor in config.yaml so TO refuses to boot")
