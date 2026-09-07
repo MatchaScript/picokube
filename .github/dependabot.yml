@@ -11,6 +11,14 @@ updates:
     labels:
       - "dependencies"
       - "go"
+    # picokube embeds kubeadm and is pinned to one Kubernetes minor per
+    # release branch; the minor moves by hand (go.mod, version.go, the
+    # image's KUBE_MINOR), never through Dependabot.
+    ignore:
+      - dependency-name: "k8s.io/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "sigs.k8s.io/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       k8s:
         patterns:
@@ -36,3 +44,23 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/packaging"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tokyo"
+    labels:
+      - "dependencies"
+      - "docker"
+    # The Go toolchain image tracks go.mod's go directive, which the
+    # Kubernetes minor bump sets; only its patch level may move on its own.
+    ignore:
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    groups:
+      images:
+        patterns:
+          - "*"
