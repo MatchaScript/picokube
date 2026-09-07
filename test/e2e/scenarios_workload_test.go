@@ -72,9 +72,15 @@ func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 // ephemeral --rm` VM that is gone by the time the job reports.
 //
 // The set below is what tells the two observed failures apart: whether the
-// Service has an endpoint at all (a ClusterIP with none is REJECTed, which
-// is the "connection refused" the probe reports), which address family of
-// rules kube-proxy programmed, and which CNI gave the pod its address.
+// Service has an endpoint at all, what kube-proxy programmed for the
+// ClusterIP, and which CNI gave the pod its address.
+//
+// Two notes on the commands. kube-proxy runs in iptables mode (on Fedora's
+// iptables-nft backend), so iptables-save is where its rules are; `nft list
+// ruleset` shows only the "managed by iptables-nft, do not touch" warning.
+// And pod logs go via the apiserver's kubelet client, which this cluster does
+// not authorize for nodes/proxy — `kubectl logs` returns Forbidden here, so
+// container logs have to come from crictl.
 func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
 	if !s.T().Failed() {
 		return
@@ -85,13 +91,14 @@ func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
 		"kubectl describe svc e2e-nginx",
 		"kubectl describe pod -l app=e2e-nginx",
 		"kubectl get events -A --sort-by=.lastTimestamp | tail -n 30",
-		"kubectl logs -n kube-system -l k8s-app=kube-proxy --tail=60",
 		"iptables-save | grep -i e2e-nginx",
-		"nft list ruleset | grep -i e2e-nginx",
+		"crictl logs --tail=60 $(crictl ps -a --name kube-proxy -q | head -n 1)",
+		"crictl logs --tail=40 $(crictl ps -a --name kube-controller-manager -q | head -n 1)",
 		"ip -brief addr; ip route",
+		"free -m; journalctl --no-pager -k | grep -iE 'oom|out of memory' | tail -n 20",
 		"ls -l /etc/cni/net.d; cat /etc/cni/net.d/*.conflist",
 		"cat /run/flannel/subnet.env",
 		"journalctl --no-pager -u kubelet --since -5min | tail -n 60",
-		"journalctl --no-pager -u crio --since -5min | tail -n 60",
+		"journalctl --no-pager -u crio --since -5min | tail -n 40",
 	)
 }
