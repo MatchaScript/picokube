@@ -24,6 +24,8 @@ import (
 // routing takes a few seconds to settle after the deployment becomes
 // Available, so a Retry loop (10 × 3s) wraps the HTTP probe.
 func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
+	defer s.logDataPlaneOnFailure()
+
 	s.T().Logf("installing flannel from %s", s.H.FlannelURL())
 	s.H.Kubectl("apply", "-f", s.H.FlannelURL())
 	s.H.WaitForPodsReady("kube-flannel", 5*time.Minute)
@@ -62,4 +64,42 @@ func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 		return nil
 	})
 	s.Require().NoError(err, "workload not reachable via ClusterIP")
+}
+
+// logDataPlaneOnFailure puts the data-plane state on stdout when Test11
+// fails. TearDownTest's DumpDiagnostics covers the control plane and writes
+// files, which CI never sees: hack/e2e.sh runs the suite in a `bcvk
+// ephemeral --rm` VM that is gone by the time the job reports.
+//
+// The set below covers what has actually gone wrong here: how full the /var
+// tmpfs that holds the image store is, whether the Service has an endpoint at
+// all, what kube-proxy programmed for the ClusterIP, and which CNI gave the
+// pod its address.
+//
+// Two notes on the commands. kube-proxy runs in iptables mode (on Fedora's
+// iptables-nft backend), so iptables-save is where its rules are; `nft list
+// ruleset` shows only the "managed by iptables-nft, do not touch" warning.
+// And pod logs go via the apiserver's kubelet client, which this cluster does
+// not authorize for nodes/proxy — `kubectl logs` returns Forbidden here, so
+// container logs have to come from crictl.
+func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
+	if !s.T().Failed() {
+		return
+	}
+	s.H.LogDiagnostics(
+		"kubectl get pods -A -o wide",
+		"kubectl get endpointslices -A -o wide",
+		"kubectl describe svc e2e-nginx",
+		"kubectl describe pod -l app=e2e-nginx",
+		"kubectl get events -A --sort-by=.lastTimestamp | tail -n 30",
+		"iptables-save | grep -i e2e-nginx",
+		"crictl logs --tail=60 $(crictl ps -a --name kube-proxy -q | head -n 1)",
+		"crictl logs --tail=40 $(crictl ps -a --name kube-controller-manager -q | head -n 1)",
+		"ip -brief addr; ip route",
+		"df -h /var /etc /; free -m",
+		"ls -l /etc/cni/net.d; cat /etc/cni/net.d/*.conflist",
+		"cat /run/flannel/subnet.env",
+		"journalctl --no-pager -u kubelet --since -5min | tail -n 60",
+		"journalctl --no-pager -u crio --since -5min | tail -n 40",
+	)
 }

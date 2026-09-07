@@ -9,6 +9,25 @@ import (
 	"strings"
 )
 
+// LogDiagnostics runs each shell command and writes its output to the test
+// log. DumpDiagnostics writes files, which is what a long-lived debug VM
+// wants; CI runs the suite in a `bcvk ephemeral --rm` VM that is destroyed
+// with the process, so stdout is the only channel that survives a failure.
+//
+// Best-effort in the same sense as DumpDiagnostics: a command that fails has
+// its exit status appended and nothing else happens.
+func (h *Helpers) LogDiagnostics(cmds ...string) {
+	for _, c := range cmds {
+		cmd := exec.Command("sh", "-c", c)
+		cmd.Env = append(cmd.Environ(), "KUBECONFIG="+h.kubeconfig)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			out = append(out, fmt.Sprintf("(exit: %v)\n", err)...)
+		}
+		h.t.Logf("=== %s\n%s", c, out)
+	}
+}
+
 // DumpDiagnostics writes a directory of diagnostic files under outDir
 // covering the same surface as test/e2e/lib.sh's dump_diagnostics.
 // Each source becomes a separate file so artifacts are greppable.
