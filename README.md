@@ -5,6 +5,29 @@ upstream kubeadm phases behind a small CLI (`init`, `config`, …) and
 expects the kubelet, CRI, and Kubernetes binaries to be supplied by the
 bootc image rather than installed at runtime.
 
+## Build
+
+`packaging/Containerfile` produces the bootc node image: a Fedora 44 bootc
+host carrying kubelet, CRI-O, kubectl, the `nanokube` binary and its units.
+
+```
+podman build --cap-add=all --security-opt=label=disable --device /dev/fuse \
+    -t coralcoast-node:dev -f packaging/Containerfile .
+```
+
+The extra podman flags are what `bootc-base-imagectl build-rootfs` needs to
+run `rpm-ostree compose` (bwrap) inside the build container.
+
+Boot it with bcvk:
+
+```
+bcvk ephemeral run-ssh --rm coralcoast-node:dev
+```
+
+kubelet stays in `activating` until `nanokube init` has written
+`/var/lib/kubelet/config.yaml`; CRI-O comes up on its own. Neither unit is
+enabled — `multi-user.target.d/10-nanokube.conf` upholds them.
+
 ## Configuration
 
 nanokube reads a multi-document YAML stream modelled on `kubeadm init

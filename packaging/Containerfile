@@ -1,0 +1,52 @@
+# coralcoast node image: a Fedora bootc host carrying everything nanokube
+# expects to already be present (kubelet, CRI-O, kubectl) plus the nanokube
+# binary and its units. Modelled on bootc-dev/bink's node image
+# (node-images/fedora/Containerfile).
+#
+#   podman build --cap-add=all --security-opt=label=disable --device /dev/fuse \
+#       -t coralcoast-node:dev -f packaging/Containerfile .
+
+FROM docker.io/library/golang:1.25 AS gobuild
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/nanokube ./cmd/nanokube
+
+FROM quay.io/fedora/fedora-bootc:44 AS builder
+ARG KUBE_MINOR=1.35
+# openssh-clients: bcvk runs this same image as the supervising container and
+# execs `ssh` inside it (bcvk crates/kit/src/ssh.rs build_podman_ssh_command),
+# so the client has to be in the image, not just the server.
+RUN /usr/libexec/bootc-base-imagectl build-rootfs \
+    --manifest=minimal \
+    --no-docs \
+    --install NetworkManager \
+    --install openssh-server \
+    --install openssh-clients \
+    --install kubernetes${KUBE_MINOR} \
+    --install kubernetes${KUBE_MINOR}-client \
+    --install cri-o${KUBE_MINOR} \
+    --install cri-tools${KUBE_MINOR} \
+    /target-rootfs
+
+FROM scratch AS root
+COPY --from=builder /target-rootfs/ /
+
+# CRI-O's packaged defaults point at /opt/cni; move them to the paths the
+# CNI plugins a user drops in actually use.
+RUN sed -i 's|"/opt/cni/bin"|"/var/lib/cni/bin"|g' /etc/crio/crio.conf && \
+    sed -i 's|"/opt/cni/net.d"|"/etc/cni/net.d"|g' /etc/crio/crio.conf
+
+COPY --from=gobuild /out/nanokube /usr/bin/nanokube
+COPY packaging/systemd/kubelet.service packaging/systemd/nanokube.service /usr/lib/systemd/system/
+COPY packaging/systemd/10-nanokube.conf /usr/lib/systemd/system/multi-user.target.d/
+COPY packaging/modules-load.d/nanokube.conf /usr/lib/modules-load.d/
+COPY packaging/sysctl.d/99-nanokube.conf /usr/lib/sysctl.d/
+COPY packaging/crictl.yaml /etc/crictl.yaml
+COPY packaging/greenboot/ /etc/greenboot/
+
+RUN bootc container lint
+
+LABEL containers.bootc 1
+LABEL ostree.bootable 1
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
