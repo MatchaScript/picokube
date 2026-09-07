@@ -123,14 +123,6 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 	logf("allowed auto-approval of node client certificate rotation")
 
-	// The apiserver reaches kubelet (logs, exec, port-forward) as the
-	// user kube-apiserver-kubelet-client. This binds that user to the
-	// system:kubelet-api-admin ClusterRole so nodes/proxy is permitted.
-	if err := nodebootstraptoken.AllowAPIServerToAccessKubeletAPI(client); err != nil {
-		return fmt.Errorf("allow API server to access kubelet API: %w", err)
-	}
-	logf("allowed the apiserver kubelet client to access the kubelet API")
-
 	if err := kubeadm.EnsureAddons(cfg, client, out); err != nil {
 		return fmt.Errorf("addons: %w", err)
 	}

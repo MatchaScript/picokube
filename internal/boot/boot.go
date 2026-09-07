@@ -241,14 +241,6 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("auto-approve node certificate rotation: %w", err))
 	}
 
-	// The apiserver reaches kubelet (logs, exec, port-forward) as the
-	// user kube-apiserver-kubelet-client. Seeded during init; reconciled
-	// here so a hand-deleted binding cannot leave nodes/proxy Forbidden.
-	if err := nodebootstraptoken.AllowAPIServerToAccessKubeletAPI(client); err != nil {
-		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("allow API server to access kubelet API: %w", err))
-	}
-	logf("allowed the apiserver kubelet client to access the kubelet API")
-
 	// CR8: addon failure is fatal, matching `picokube init` and upstream
 	// kubeadm. The previous log-and-continue was asymmetric and let a
 	// boot succeed when the cluster was missing CoreDNS / kube-proxy.
