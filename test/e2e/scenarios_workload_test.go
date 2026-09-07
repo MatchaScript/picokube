@@ -24,6 +24,8 @@ import (
 // routing takes a few seconds to settle after the deployment becomes
 // Available, so a Retry loop (10 × 3s) wraps the HTTP probe.
 func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
+	defer s.logDataPlaneOnFailure()
+
 	s.T().Logf("installing flannel from %s", s.H.FlannelURL())
 	s.H.Kubectl("apply", "-f", s.H.FlannelURL())
 	s.H.WaitForPodsReady("kube-flannel", 5*time.Minute)
@@ -62,4 +64,34 @@ func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 		return nil
 	})
 	s.Require().NoError(err, "workload not reachable via ClusterIP")
+}
+
+// logDataPlaneOnFailure puts the data-plane state on stdout when Test11
+// fails. TearDownTest's DumpDiagnostics covers the control plane and writes
+// files, which CI never sees: hack/e2e.sh runs the suite in a `bcvk
+// ephemeral --rm` VM that is gone by the time the job reports.
+//
+// The set below is what tells the two observed failures apart: whether the
+// Service has an endpoint at all (a ClusterIP with none is REJECTed, which
+// is the "connection refused" the probe reports), which address family of
+// rules kube-proxy programmed, and which CNI gave the pod its address.
+func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
+	if !s.T().Failed() {
+		return
+	}
+	s.H.LogDiagnostics(
+		"kubectl get pods -A -o wide",
+		"kubectl get endpointslices -A -o wide",
+		"kubectl describe svc e2e-nginx",
+		"kubectl describe pod -l app=e2e-nginx",
+		"kubectl get events -A --sort-by=.lastTimestamp | tail -n 30",
+		"kubectl logs -n kube-system -l k8s-app=kube-proxy --tail=60",
+		"iptables-save | grep -i e2e-nginx",
+		"nft list ruleset | grep -i e2e-nginx",
+		"ip -brief addr; ip route",
+		"ls -l /etc/cni/net.d; cat /etc/cni/net.d/*.conflist",
+		"cat /run/flannel/subnet.env",
+		"journalctl --no-pager -u kubelet --since -5min | tail -n 60",
+		"journalctl --no-pager -u crio --since -5min | tail -n 60",
+	)
 }
