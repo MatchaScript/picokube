@@ -6,10 +6,11 @@
 // ClusterRoleBinding using a just-in-time super-admin.conf
 // (system:masters-bound), removes super-admin.conf so the break-glass
 // cred does not linger on a long-lived node, marks the control-plane
-// node, and applies addons. On success the cluster is healthy and the
-// operator's next step is `systemctl enable nanokube.service` to put
-// future reboots under supervisor control. lifecycle.Boot handles every
-// reboot from then on as a pure reconcile.
+// node, applies addons, and repoints kubelet.conf at the client
+// certificate kubelet rotates for itself. On success the cluster is
+// healthy and the operator's next step is `systemctl enable
+// nanokube.service` to put future reboots under supervisor control.
+// lifecycle.Boot handles every reboot from then on as a pure reconcile.
 //
 // Recovery: a partial Run (e.g. /readyz never came up) leaves the node
 // in a state state.Exists() detects, so a retry surfaces a clear
@@ -26,6 +27,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	nodebootstraptoken "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/markcontrolplane"
 
 	"github.com/MatchaScript/nanokube/internal/backup"
@@ -113,8 +115,20 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 	}
 	logf("marked control-plane node")
 
+	// kubelet renews its own client certificate through the CSR API. The
+	// CSRs are only auto-approved once system:nodes is bound to the
+	// selfnodeclient ClusterRole, which is what this creates.
+	if err := nodebootstraptoken.AutoApproveNodeCertificateRotation(client); err != nil {
+		return fmt.Errorf("auto-approve node certificate rotation: %w", err)
+	}
+	logf("allowed auto-approval of node client certificate rotation")
+
 	if err := kubeadm.EnsureAddons(cfg, client, out); err != nil {
 		return fmt.Errorf("addons: %w", err)
+	}
+
+	if err := finalizeKubeletKubeconfig(ctx, l, logf); err != nil {
+		return err
 	}
 
 	if err := writeFirstBootState(l, selfVersion, isOSTree); err != nil {
@@ -165,6 +179,59 @@ func startKubelet(ctx context.Context, logf func(string, ...any)) error {
 	}
 	logf("kubelet.service queued for start")
 	return nil
+}
+
+// restartKubelet asks systemd to restart kubelet.service so it re-reads
+// the kubelet.conf finalizeKubeletKubeconfig just rewrote. Unlike the
+// initial start this blocks, because nothing downstream re-checks that
+// kubelet came back.
+func restartKubelet(ctx context.Context, logf func(string, ...any)) error {
+	cmd := exec.CommandContext(ctx, "systemctl", "restart", "kubelet.service")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemctl restart kubelet: %v: %s", err, out)
+	}
+	logf("kubelet.service restarted")
+	return nil
+}
+
+// kubeletCertTimeout bounds how long init waits for kubelet to complete
+// its first client-certificate CSR, kubeletCertInterval how often the
+// rotated pem is polled for.
+const (
+	kubeletCertTimeout  = 90 * time.Second
+	kubeletCertInterval = 2 * time.Second
+)
+
+// finalizeKubeletKubeconfig waits for the certificate kubelet requests
+// on its first start, then repoints kubelet.conf at it and restarts
+// kubelet so the new reference takes effect.
+//
+// A timeout here is not fatal: the cluster is already healthy, and the
+// only consequence is that kubelet.conf keeps the embedded bootstrap
+// certificate until the next `nanokube boot` finalizes it. Failing init
+// over it would send the operator down the reset+init path for
+// something that fixes itself on reboot.
+func finalizeKubeletKubeconfig(ctx context.Context, l layout.Layout, logf func(string, ...any)) error {
+	logf("waiting for kubelet client certificate rotation (timeout=%s)", kubeletCertTimeout)
+	cctx, cancel := context.WithTimeout(ctx, kubeletCertTimeout)
+	defer cancel()
+	for {
+		changed, err := kubeadm.FinalizeKubeletKubeconfig(l)
+		if err != nil {
+			return fmt.Errorf("finalize kubelet.conf: %w", err)
+		}
+		if changed {
+			logf("kubelet.conf now references the rotated client certificate")
+			return restartKubelet(ctx, logf)
+		}
+		select {
+		case <-cctx.Done():
+			logf("kubelet client certificate not rotated within %s; next boot will finalize kubelet.conf", kubeletCertTimeout)
+			return nil
+		case <-time.After(kubeletCertInterval):
+		}
+	}
 }
 
 // readyzTimeout bounds how long init waits for apiserver /readyz after

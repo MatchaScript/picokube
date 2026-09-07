@@ -15,8 +15,12 @@ package certs
 // internal name keys 1:1 (see kubeadm certs/renewal/manager.go), so a
 // LeafKind can be passed straight to RenewUsingLocalCA.
 //
-// kubelet.conf is intentionally absent: kubelet rotates its client cert
-// via the CSR API and external code must not touch it.
+// kubelet.conf is intentionally absent, matching kubeadm's own renewal
+// manager. Once kubeadm.FinalizeKubeletKubeconfig has run, kubelet.conf
+// holds no certificate of its own: it references
+// /var/lib/kubelet/pki/kubelet-client-current.pem, the store kubelet
+// renews through the CSR API. Renewing it from here would write an
+// embedded certificate back over that reference.
 type LeafKind string
 
 const (

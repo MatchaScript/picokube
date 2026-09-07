@@ -63,6 +63,7 @@ import (
 	"github.com/coreos/go-systemd/v22/daemon"
 	"k8s.io/client-go/kubernetes"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	nodebootstraptoken "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/markcontrolplane"
 
 	"github.com/MatchaScript/nanokube/internal/backup"
@@ -190,6 +191,17 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 		return bootFailed(l, upgrading, prev.Version, selfVersion, err)
 	}
 
+	// Point kubelet.conf at the certificate kubelet rotates for itself
+	// rather than the bootstrap one certs.Init embedded. `nanokube init`
+	// normally did this already; this call covers the boot after an init
+	// whose wait timed out. No restart is needed — kubelet reads
+	// kubelet.conf on the start issued just below.
+	if changed, err := kubeadm.FinalizeKubeletKubeconfig(l); err != nil {
+		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("finalize kubelet.conf: %w", err))
+	} else if changed {
+		logf("kubelet.conf now references the rotated client certificate")
+	}
+
 	if err := startKubelet(ctx, logf); err != nil {
 		return bootFailed(l, upgrading, prev.Version, selfVersion, err)
 	}
@@ -219,6 +231,14 @@ func Run(ctx context.Context, cfg *kubeadmapi.InitConfiguration, l layout.Layout
 
 	if err := markcontrolplane.MarkControlPlane(client, nodeName, cfg.NodeRegistration.Taints); err != nil {
 		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("mark control-plane: %w", err))
+	}
+
+	// Re-assert the RBAC that lets the csrapprover controller
+	// auto-approve kubelet's certificate-rotation CSRs. Seeded during
+	// init; reconciled here so a hand-deleted binding cannot silently
+	// strand kubelet on an expiring client certificate.
+	if err := nodebootstraptoken.AutoApproveNodeCertificateRotation(client); err != nil {
+		return bootFailed(l, upgrading, prev.Version, selfVersion, fmt.Errorf("auto-approve node certificate rotation: %w", err))
 	}
 
 	// CR8: addon failure is fatal, matching `nanokube init` and upstream
