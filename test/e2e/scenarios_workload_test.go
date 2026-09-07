@@ -71,9 +71,10 @@ func (s *PicokubeE2ESuite) Test11Workload_CNIAndConnectivity() {
 // files, which CI never sees: hack/e2e.sh runs the suite in a `bcvk
 // ephemeral --rm` VM that is gone by the time the job reports.
 //
-// The set below is what tells the two observed failures apart: whether the
-// Service has an endpoint at all, what kube-proxy programmed for the
-// ClusterIP, and which CNI gave the pod its address.
+// The set below covers what has actually gone wrong here: how full the /var
+// tmpfs that holds the image store is, whether the Service has an endpoint at
+// all, what kube-proxy programmed for the ClusterIP, and which CNI gave the
+// pod its address.
 //
 // Two notes on the commands. kube-proxy runs in iptables mode (on Fedora's
 // iptables-nft backend), so iptables-save is where its rules are; `nft list
@@ -95,7 +96,7 @@ func (s *PicokubeE2ESuite) logDataPlaneOnFailure() {
 		"crictl logs --tail=60 $(crictl ps -a --name kube-proxy -q | head -n 1)",
 		"crictl logs --tail=40 $(crictl ps -a --name kube-controller-manager -q | head -n 1)",
 		"ip -brief addr; ip route",
-		"free -m; journalctl --no-pager -k | grep -iE 'oom|out of memory' | tail -n 20",
+		"df -h /var /etc /; free -m",
 		"ls -l /etc/cni/net.d; cat /etc/cni/net.d/*.conflist",
 		"cat /run/flannel/subnet.env",
 		"journalctl --no-pager -u kubelet --since -5min | tail -n 60",
