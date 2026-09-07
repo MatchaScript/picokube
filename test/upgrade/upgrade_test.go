@@ -440,7 +440,12 @@ chmod 0600 /boot/grub2/grub.cfg.new
 mv /boot/grub2/grub.cfg.new /boot/grub2/grub.cfg
 grep '^### BEGIN' /boot/grub2/grub.cfg
 grep -q boot_counter /boot/grub2/grub.cfg
-[ "$boot_was_ro" = 0 ] || mount -o remount,ro /boot
+# Restoring ro is best effort: something on /boot keeps an open writable
+# descriptor and the remount returns EBUSY. fstab mounts it ro again on the
+# reboot that follows this step, and greenboot manages its own remount
+# around writing grubenv.
+[ "$boot_was_ro" = 0 ] || mount -o remount,ro /boot ||
+    echo "left /boot rw; fstab restores ro on the next boot"
 
 picokube init
 systemctl enable --now picokube.service
