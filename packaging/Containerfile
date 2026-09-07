@@ -90,6 +90,7 @@ COPY --from=gobuild /out/picokube /usr/bin/picokube
 COPY --from=gobuild /out/e2e.test /usr/libexec/picokube/e2e.test
 COPY packaging/systemd/picokube.service /usr/lib/systemd/system/
 COPY packaging/systemd/10-picokube.conf /usr/lib/systemd/system/multi-user.target.d/
+COPY packaging/systemd/greenboot-healthcheck.service.d/ /usr/lib/systemd/system/greenboot-healthcheck.service.d/
 COPY packaging/crictl.yaml /etc/crictl.yaml
 COPY packaging/greenboot/ /etc/greenboot/
 
