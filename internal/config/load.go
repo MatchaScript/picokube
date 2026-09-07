@@ -26,6 +26,7 @@ import (
 
 	v1alpha1 "github.com/MatchaScript/picokube/internal/apis/bootstrap/v1alpha1"
 	"github.com/MatchaScript/picokube/internal/layout"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
 // Load reads the multi-document YAML at path, parses both the
@@ -68,6 +69,7 @@ func parse(data []byte, source string, l layout.Layout) (*kubeadmapi.InitConfigu
 		return nil, err
 	}
 	v1alpha1.SetDefaults(wrapper)
+	pinKubernetesVersion(gvkmap)
 
 	kubeadmBytes := concatDocs(gvkmap)
 	kubeadmCfg, err := kubeadmconfig.BytesToInitConfiguration(kubeadmBytes, false)
@@ -97,6 +99,40 @@ func parse(data []byte, source string, l layout.Layout) (*kubeadmapi.InitConfigu
 	// retargeted in the future.
 	kubeadmCfg.CertificatesDir = l.PKIDir
 	return kubeadmCfg, nil
+}
+
+// pinKubernetesVersion writes the image's Kubernetes version into the
+// ClusterConfiguration document when the user left it unset. kubeadm's
+// own defaulter would otherwise turn the empty field into the
+// "stable-1" label and resolve it over the internet, which a bootc node
+// must not depend on and which yields whatever upstream released last
+// rather than the version this image ships.
+//
+// An explicit value is left untouched so Validate still sees — and
+// rejects — a mismatch. A document kubeadm cannot parse is likewise left
+// alone; kubeadm reports the syntax error better than we would.
+func pinKubernetesVersion(gvkmap kubeadmapi.DocumentMap) {
+	line := []byte("kubernetesVersion: " + version.KubernetesVersion + "\n")
+	for gvk, doc := range gvkmap {
+		if !kubeadmutil.GroupVersionKindsHasClusterConfiguration(gvk) {
+			continue
+		}
+		var probe struct {
+			KubernetesVersion string `json:"kubernetesVersion"`
+		}
+		if err := yaml.Unmarshal(doc, &probe); err != nil || probe.KubernetesVersion != "" {
+			return
+		}
+		if len(doc) > 0 && doc[len(doc)-1] != '\n' {
+			doc = append(doc, '\n')
+		}
+		gvkmap[gvk] = append(doc, line...)
+		return
+	}
+	// No ClusterConfiguration document at all: kubeadm defaults one, so
+	// supply the pinned version the same way.
+	gvk := kubeadmapiv1.SchemeGroupVersion.WithKind("ClusterConfiguration")
+	gvkmap[gvk] = append([]byte("apiVersion: "+kubeadmapiv1.SchemeGroupVersion.String()+"\nkind: ClusterConfiguration\n"), line...)
 }
 
 func extractWrapper(gvkmap kubeadmapi.DocumentMap, source string) (*v1alpha1.PicoKubeConfig, error) {

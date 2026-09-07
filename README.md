@@ -81,7 +81,6 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: v1.35.0
 networking:
   serviceSubnet: 10.96.0.0/12
   podSubnet: 10.244.0.0/16
@@ -112,9 +111,12 @@ warning is the signal to migrate.
 A few `ClusterConfiguration` fields are managed by the bootc image rather
 than by configuration:
 
-- `kubernetesVersion` — must equal the version pinned in this image (or
-  be left unset). picokube rejects configs that request a different
-  version.
+- `kubernetesVersion` — pinned by the image, so leave it unset and
+  picokube fills it in. An explicit value must equal the pinned one;
+  picokube rejects configs that request a different version.
+  `print-defaults` leaves it out for that reason: a config generated on
+  one image stays usable after the host is switched to an image carrying
+  a different Kubernetes version.
 - `certificatesDir` — fixed at `/etc/kubernetes/pki`. picokube rejects
   explicit non-matching values and overrides empty defaults.
 

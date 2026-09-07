@@ -36,12 +36,12 @@ func newConfigPrintDefaultsCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("default kubeadm config: %w", err)
 			}
-			// DefaultedStaticInitConfiguration emits the kubeadm
-			// placeholder version ("v1.0.0-placeholder-version") so it
-			// works without internet access. Replace it with the image-
-			// pinned version so the emitted template is round-tripable
-			// through validate.
-			kubeadmCfg.ClusterConfiguration.KubernetesVersion = version.KubernetesVersion
+			// KubernetesVersion is pinned by the bootc image, and
+			// validate rejects a config that names a different one.
+			// Emitting it would tie the generated file to the image that
+			// produced it; leave it unset so config.Load fills in
+			// whichever version the running image carries.
+			kubeadmCfg.ClusterConfiguration.KubernetesVersion = ""
 			data, err := config.Marshal(v1alpha1.NewDefault(), kubeadmCfg)
 			if err != nil {
 				return err

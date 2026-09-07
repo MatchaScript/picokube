@@ -8,6 +8,7 @@ import (
 
 	v1alpha1 "github.com/MatchaScript/picokube/internal/apis/bootstrap/v1alpha1"
 	"github.com/MatchaScript/picokube/internal/layouttest"
+	"github.com/MatchaScript/picokube/internal/version"
 )
 
 // writeTempFile drops body into a fresh file under t.TempDir() and
@@ -120,6 +121,22 @@ func TestLoad_RejectsMismatchedKubernetesVersion(t *testing.T) {
 	_, err := Load(writeTempFile(t, body), l)
 	if err == nil || !strings.Contains(err.Error(), "kubernetesVersion") {
 		t.Fatalf("Load = %v; want kubernetesVersion mismatch error", err)
+	}
+}
+
+// An unset kubernetesVersion must resolve to the version pinned in this
+// image. kubeadm's own defaulter would resolve its "stable-1" label over
+// the internet instead, which is both a network dependency and whatever
+// version upstream released last.
+func TestLoad_UnsetKubernetesVersionInheritsPinnedVersion(t *testing.T) {
+	l := layouttest.New(t)
+	body := strings.Replace(minimalConfig, "kubernetesVersion: v1.35.0\n", "", 1)
+	cfg, err := Load(writeTempFile(t, body), l)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.KubernetesVersion != version.KubernetesVersion {
+		t.Errorf("KubernetesVersion = %q; want pinned %q", cfg.KubernetesVersion, version.KubernetesVersion)
 	}
 }
 
