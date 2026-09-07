@@ -84,6 +84,21 @@ func (s *PicokubeE2ESuite) Test10Boot_AddonsDeployed() {
 	s.Require().Equal("deployment.apps/coredns", strings.TrimSpace(out))
 }
 
+// Test10Boot_KubeletAPIAccessAllowed asserts `kubectl logs` works. It
+// reaches kubelet through the apiserver's nodes/proxy subresource as
+// the user kube-apiserver-kubelet-client, which is only authorized by
+// the kubeadm:apiserver-kubelet-client ClusterRoleBinding that
+// nodebootstraptoken's AllowAPIServerToAccessKubeletAPI creates.
+// Without it this returns Forbidden, as do exec and port-forward.
+//
+// Sorts after Test10Boot_AddonsDeployed and before Test11 under
+// testify's lexicographic dispatch, so it runs on the booted cluster.
+func (s *PicokubeE2ESuite) Test10Boot_KubeletAPIAccessAllowed() {
+	pod := "kube-apiserver-" + s.H.NodeName()
+	out := s.H.Kubectl("-n", "kube-system", "logs", "--tail=5", pod)
+	s.Require().NotEmptyf(strings.TrimSpace(out), "kubectl logs %s returned no output", pod)
+}
+
 // Test10Boot_KubeletCSRApprovedAndIssued asserts kubelet's certificate
 // rotation completes end to end: kubelet asks for its own client
 // certificate via the CSR API, and the csrapprover controller approves
