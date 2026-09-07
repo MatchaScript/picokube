@@ -9,6 +9,14 @@
 # tripping the rollback path, so a brief startup race is tolerated.
 set -eu
 
+# A node that has not run `picokube init` has no cluster to judge. Without
+# this exit the first boot of a fresh image goes RED, greenboot reboots it
+# three times and then demands manual intervention before init can run.
+if [ ! -e /var/lib/picokube/state/last-boot.json ] ; then
+    echo "picokube: not initialised yet, nothing to check" >&2
+    exit 0
+fi
+
 if ! systemctl is-active --quiet picokube.service ; then
     echo "picokube.service is not active" >&2
     systemctl status --no-pager picokube.service >&2 || true
