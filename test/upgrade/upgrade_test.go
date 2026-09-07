@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -52,6 +53,9 @@ const (
 	// mount is absent, for bcvk builds that only attach the device.
 	hostStorage = "/run/host-container-storage"
 	storageTag  = "hoststorage"
+
+	// How much of the serial console a give-up prints.
+	consoleTailLines = 200
 )
 
 // kubernetesVersion pulls the version out of `picokube version`, which
@@ -142,14 +146,44 @@ func startVM(t *testing.T, image string) string {
 	// `bootc install to-disk` fails with "No root filesystem specified"
 	// without it. bcvk's own bind-storage test passes ext4 for the same
 	// reason.
-	out, err := bcvk(t, "libvirt", "run", "--name", name, "--replace",
+	args := []string{"libvirt", "run", "--name", name, "--replace",
 		"--bind-storage-ro", "--ssh-wait", "--filesystem", "ext4",
-		"--memory", "4G", "--cpus", "2", image)
+		"--memory", "4G", "--cpus", "2"}
+	if help, _ := bcvk(t, "libvirt", "run", "--help"); strings.Contains(help, "--log-dir") {
+		if err := os.MkdirAll(consoleDir(name), 0o755); err != nil {
+			t.Fatalf("console dir: %v", err)
+		}
+		args = append(args, "--log-dir=console="+consoleDir(name))
+	} else {
+		t.Log("this bcvk has no --log-dir; a hang will have no console to show")
+	}
+	out, err := bcvk(t, append(args, image)...)
 	if err != nil {
 		t.Fatalf("bcvk libvirt run: %v", err)
 	}
 	t.Logf("VM %s up in %s: %s", name, time.Since(start).Round(time.Second), strings.TrimSpace(out))
 	return name
+}
+
+// consoleDir is where bcvk writes console.txt for a domain. Derived from the
+// name so no state has to be carried between startVM and the wait helpers.
+func consoleDir(vm string) string { return filepath.Join(os.TempDir(), "picokube-console-"+vm) }
+
+// dumpConsole logs the tail of the VM's serial console. It is the only view
+// into a guest that has stopped answering ssh, and CI logs are the only
+// debugging surface, so every wait that gives up calls this first.
+func dumpConsole(t *testing.T, vm string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(consoleDir(vm), "console.txt"))
+	if err != nil {
+		t.Logf("no console log for %s: %v", vm, err)
+		return
+	}
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	if len(lines) > consoleTailLines {
+		lines = lines[len(lines)-consoleTailLines:]
+	}
+	t.Logf("console tail of %s (%d lines):\n%s", vm, len(lines), strings.Join(lines, "\n"))
 }
 
 // bootID identifies the running kernel boot, so a reboot can be waited for
@@ -187,6 +221,7 @@ func waitNewBoot(t *testing.T, vm, before string, timeout time.Duration) {
 			t.Logf("attempt %d: still the pre-reboot boot", attempt)
 		}
 		if time.Now().After(deadline) {
+			dumpConsole(t, vm)
 			t.Fatalf("%s did not come back from a reboot within %s", vm, timeout)
 		}
 		time.Sleep(10 * time.Second)
@@ -205,6 +240,7 @@ func waitUnitActive(t *testing.T, vm, unit string, timeout time.Duration) {
 			return
 		}
 		if time.Now().After(deadline) {
+			dumpConsole(t, vm)
 			t.Logf("%s", ssh(t, vm, "systemctl status --no-pager "+unit+" || true\njournalctl -u "+unit+" -b --no-pager"))
 			t.Fatalf("%s did not become active within %s", unit, timeout)
 		}
@@ -276,6 +312,7 @@ func waitBootedDigest(t *testing.T, vm, want string, timeout time.Duration) {
 			last = digest
 		}
 		if time.Now().After(deadline) {
+			dumpConsole(t, vm)
 			t.Fatalf("guest never rolled back to %s within %s (last seen %q)", want, timeout, last)
 		}
 		time.Sleep(20 * time.Second)
