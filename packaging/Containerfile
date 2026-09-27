@@ -10,7 +10,7 @@
 #
 #   podman build -t picokube-node:dev -f packaging/Containerfile .
 
-FROM docker.io/library/golang:1.26 AS gobuild
+FROM docker.io/library/golang:1.27 AS gobuild
 WORKDIR /src
 COPY . .
 # The e2e suite is baked in and always built: it is how the image gets
@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -o /out/picokube ./cmd/picokube && \
     CGO_ENABLED=0 go test -c -tags e2e -o /out/e2e.test ./test/e2e
 
-FROM quay.io/fedora/fedora-bootc:44@sha256:71e4c657272bba6c9c21c5825b26faec58fdfacf4b62e7643c98d3f50a3a3541
+FROM quay.io/fedora/fedora-bootc:44@sha256:72d78ad96e9f2bcbeddc3ea03e6c2625a6fc58f9b55a83b27c88ee644cae653b
 
 # Must match the k8s.io/kubernetes minor in go.mod: the suite exercises the
 # embedded kubeadm against the kubelet installed here.
